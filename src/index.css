@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: #08080e;
+  color: #f1f5f9;
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #08080e; }
+::-webkit-scrollbar-thumb { background: #1e1e2d; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #2d2d42; }
+
+/* TradingView widget container */
+.tv-widget-container {
+  height: 100%;
+  width: 100%;
+}
+.tv-widget-container iframe {
+  border: none !important;
+}
+
+/* Chart tooltip */
+.recharts-tooltip-wrapper {
+  outline: none !important;
+}
+
+/* Section fade-in */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.section-enter {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Gauge animation */
+@keyframes gaugeArc {
+  from { stroke-dashoffset: 220; }
+}
+
+/* Number ticker */
+.ticker-up { color: #22c55e; }
+.ticker-down { color: #ef4444; }
+.ticker-neutral { color: #94a3b8; }
