@@ -1,20 +1,39 @@
 import { useState } from 'react'
-import { X, ExternalLink, Check, AlertCircle } from 'lucide-react'
+import { X, ExternalLink, Check, AlertCircle, Loader } from 'lucide-react'
 import { useApp } from '../context/AppContext'
+import { testFredKey } from '../hooks/useFRED'
 
 interface SettingsModalProps {
   onClose: () => void
 }
 
+type TestState = 'idle' | 'testing' | 'ok' | 'error'
+
 export function SettingsModal({ onClose }: SettingsModalProps) {
   const { fredApiKey, setFredApiKey } = useApp()
   const [keyInput, setKeyInput] = useState(fredApiKey)
   const [saved, setSaved] = useState(false)
+  const [testState, setTestState] = useState<TestState>('idle')
+  const [testMsg, setTestMsg] = useState('')
 
-  const handleSave = () => {
-    setFredApiKey(keyInput.trim())
+  const handleSave = async () => {
+    const key = keyInput.trim()
+    setFredApiKey(key)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
+
+    if (key) {
+      setTestState('testing')
+      setTestMsg('')
+      const result = await testFredKey(key)
+      if (result === 'ok') {
+        setTestState('ok')
+        setTestMsg('Connected — data will start loading')
+      } else {
+        setTestState('error')
+        setTestMsg(result)
+      }
+    }
   }
 
   return (
@@ -36,8 +55,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
               FRED API Key
             </label>
             <p className="text-xs text-text-muted">
-              Required for Federal Reserve economic data (balance sheet, TGA, bank reserves,
-              yields, M2, etc.). Free at{' '}
+              Required for Federal Reserve economic data. Free at{' '}
               <a
                 href="https://fred.stlouisfed.org/docs/api/api_key.html"
                 target="_blank"
@@ -52,29 +70,64 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
               <input
                 type="text"
                 value={keyInput}
-                onChange={(e) => setKeyInput(e.target.value)}
-                placeholder="e.g. abcdef1234567890abcdef1234567890"
+                onChange={(e) => {
+                  setKeyInput(e.target.value)
+                  setTestState('idle')
+                }}
+                onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+                placeholder="32-character alphanumeric key"
                 className="flex-1 bg-bg-card border border-bg-border rounded-lg px-3 py-2 text-sm font-mono text-text-primary placeholder-text-muted outline-none focus:border-accent-teal/50 transition-colors"
               />
               <button
                 onClick={handleSave}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  saved
+                disabled={testState === 'testing'}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${
+                  saved && testState !== 'error'
                     ? 'bg-accent-green/20 text-accent-green'
                     : 'bg-accent-teal/20 text-accent-teal hover:bg-accent-teal/30'
-                }`}
+                } disabled:opacity-50`}
               >
-                {saved ? <Check size={16} /> : 'Save'}
+                {testState === 'testing' ? (
+                  <Loader size={14} className="animate-spin" />
+                ) : saved ? (
+                  <Check size={16} />
+                ) : (
+                  'Save & Test'
+                )}
               </button>
             </div>
+
+            {/* Test result */}
+            {testState !== 'idle' && (
+              <div
+                className={`text-xs px-3 py-2 rounded-lg flex items-center gap-2 ${
+                  testState === 'ok'
+                    ? 'bg-accent-green/10 text-accent-green'
+                    : testState === 'error'
+                    ? 'bg-accent-red/10 text-accent-red'
+                    : 'bg-bg-card text-text-muted'
+                }`}
+              >
+                {testState === 'testing' && <Loader size={12} className="animate-spin" />}
+                {testState === 'ok' && <Check size={12} />}
+                {testState === 'error' && <AlertCircle size={12} />}
+                <span>
+                  {testState === 'testing' ? 'Testing connection to FRED…' : testMsg}
+                </span>
+              </div>
+            )}
           </div>
 
-          {/* Info */}
+          {/* Note about CORS proxy */}
           <div className="bg-bg-card border border-bg-border rounded-xl p-4 flex gap-3">
             <AlertCircle size={16} className="text-accent-orange shrink-0 mt-0.5" />
             <div className="text-xs text-text-muted space-y-1">
-              <p>Your API key is stored locally in your browser and never sent to any server other than FRED.</p>
-              <p>Market data (charts) via TradingView requires no API key.</p>
+              <p>
+                Your API key is stored locally in your browser only. FRED data is fetched via{' '}
+                <strong className="text-text-secondary">corsproxy.io</strong> (required because
+                FRED's API doesn't allow direct browser requests).
+              </p>
+              <p>TradingView market charts require no API key and load immediately.</p>
             </div>
           </div>
 
@@ -83,10 +136,14 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
             <p className="text-xs font-medium text-text-secondary">Data Sources</p>
             <div className="grid grid-cols-2 gap-1">
               {[
-                { name: 'FRED (St. Louis Fed)', status: fredApiKey ? '✓ Connected' : '○ Key needed', ok: !!fredApiKey },
+                {
+                  name: 'FRED (St. Louis Fed)',
+                  status: testState === 'ok' ? '✓ Connected' : fredApiKey ? '~ Key saved' : '○ Key needed',
+                  ok: testState === 'ok' || (!!fredApiKey && testState !== 'error'),
+                },
                 { name: 'TradingView', status: '✓ Active', ok: true },
                 { name: 'CoinGecko', status: '✓ Active', ok: true },
-                { name: 'World Bank', status: '✓ Active', ok: true },
+                { name: 'corsproxy.io', status: '✓ Proxy active', ok: true },
               ].map((s) => (
                 <div key={s.name} className="flex items-center gap-2 text-xs">
                   <span className={s.ok ? 'text-accent-green' : 'text-text-muted'}>{s.status}</span>
