@@ -64,9 +64,9 @@ const commodityCharts = [
     interval: 'W',
   },
   {
-    symbol: 'NYMEX:UX1!',
-    title: 'Uranium — Front Month',
-    subtitle: 'Nuclear fuel — energy transition',
+    symbol: 'NYSE:CCJ',
+    title: 'Cameco (CCJ) — Uranium Proxy',
+    subtitle: 'Largest listed uranium producer — nuclear renaissance play',
     badge: 'TradingView',
     interval: 'W',
   },
@@ -201,7 +201,7 @@ export function CommoditiesSection() {
         </p>
         <div className="mt-3">
           <TradingViewChart
-            symbol="SPREADEX:OIL_BRENT_CRUDE-SPREADEX:OIL_CRUDE"
+            symbol="TVC:UKOIL"
             interval="D"
             height={180}
           />

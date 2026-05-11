@@ -54,18 +54,18 @@ export function CryptoSection() {
           badge="TradingView"
           badgeColor="#f59e0b"
         >
-          <TradingViewChart symbol="BTCUSD/XAUUSD" interval="W" height={CHART_HEIGHT - 60} />
+          <TradingViewChart symbol="BITSTAMP:BTCUSD/TVC:GOLD" interval="W" height={CHART_HEIGHT - 60} />
         </ChartCard>
 
         <ChartCard
-          title="Bitcoin Implied Volatility — DVOL"
-          subtitle="Deribit BTC options 30-day IV index"
+          title="Bitcoin Implied Volatility — BVIV"
+          subtitle="Bitcoin Volatility Index (INDEX:BVIV) — 30-day options-implied vol"
           height={CHART_HEIGHT}
           badge="TradingView"
           badgeColor="#f59e0b"
-          note="DVOL > 80 = elevated risk. Useful for options strategy and risk-off signal."
+          note="BVIV > 80 = elevated risk. For Deribit DVOL (deeper options data) visit deribit.com/statistics."
         >
-          <TradingViewChart symbol="DERIBIT:DVOL" interval="D" height={CHART_HEIGHT - 60} />
+          <TradingViewChart symbol="INDEX:BVIV" interval="D" height={CHART_HEIGHT - 60} />
         </ChartCard>
 
         <ChartCard

@@ -13,7 +13,7 @@ const fxCharts = [
   { symbol: 'FX:USDBRL', title: 'USD/BRL', subtitle: 'Brazilian Real — EM liquidity signal', interval: 'W' },
   { symbol: 'FX:USDINR', title: 'USD/INR', subtitle: 'Indian Rupee — de-dollarization watch', interval: 'W' },
   { symbol: 'FX:USDKRW', title: 'USD/KRW', subtitle: 'Korean Won — Asia risk-off proxy', interval: 'W' },
-  { symbol: 'OANDA:XAUUSD', title: 'Gold / USD (XAU)', subtitle: 'Gold as reserve currency competitor', interval: 'W' },
+  { symbol: 'TVC:GOLD', title: 'Gold / USD (XAU)', subtitle: 'Gold as reserve currency competitor', interval: 'W' },
 ]
 
 export function CurrenciesSection() {

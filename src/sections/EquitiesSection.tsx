@@ -5,17 +5,17 @@ import { ChartCard, NoApiKeyCard } from '../components/cards/MetricCard'
 import { MacroChart } from '../components/charts/MacroChart'
 
 const equityCharts = [
-  { symbol: 'FOREXCOM:SPXUSD', title: 'S&P 500', subtitle: 'Large cap US equities', interval: 'W' },
+  { symbol: 'SP:SPX', title: 'S&P 500', subtitle: 'Large cap US equities', interval: 'W' },
   { symbol: 'NASDAQ:NDX', title: 'NASDAQ 100', subtitle: 'Tech-heavy large cap growth', interval: 'W' },
   { symbol: 'TVC:RUT', title: 'Russell 2000', subtitle: 'US small cap — domestic cycle proxy', interval: 'W' },
-  { symbol: 'DJ:DJI', title: 'Dow Jones Industrial', subtitle: 'Blue chip industrial bellwether', interval: 'W' },
+  { symbol: 'TVC:DJI', title: 'Dow Jones Industrial', subtitle: 'Blue chip industrial bellwether', interval: 'W' },
 ]
 
 const euCharts = [
   { symbol: 'XETR:DAX', title: 'DAX (Germany)', subtitle: 'Export-heavy industrials + financials', interval: 'W' },
-  { symbol: 'EURONEXT:CAC40', title: 'CAC 40 (France)', subtitle: 'Luxury goods + energy', interval: 'W' },
-  { symbol: 'LSE:UKX', title: 'FTSE 100 (UK)', subtitle: 'Resources + financials heavy', interval: 'W' },
-  { symbol: 'INDEX:NKY', title: 'Nikkei 225 (Japan)', subtitle: 'JPY-hedged risk; BoJ policy proxy', interval: 'W' },
+  { symbol: 'EURONEXT:PX1', title: 'CAC 40 (France)', subtitle: 'Luxury goods + energy', interval: 'W' },
+  { symbol: 'INDEX:UKX', title: 'FTSE 100 (UK)', subtitle: 'Resources + financials heavy', interval: 'W' },
+  { symbol: 'TVC:NI225', title: 'Nikkei 225 (Japan)', subtitle: 'JPY-hedged risk; BoJ policy proxy', interval: 'W' },
 ]
 
 const sectorCharts = [

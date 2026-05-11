@@ -6,7 +6,7 @@ import { TickerTape } from '../components/charts/TradingViewChart'
 import { TrendingUp, TrendingDown, Activity, Landmark, DollarSign, Zap } from 'lucide-react'
 
 const TICKER_SYMBOLS = [
-  { proName: 'FOREXCOM:SPXUSD', title: 'S&P 500' },
+  { proName: 'SP:SPX', title: 'S&P 500' },
   { proName: 'NASDAQ:NDX', title: 'NASDAQ 100' },
   { proName: 'TVC:DXY', title: 'DXY' },
   { proName: 'TVC:GOLD', title: 'Gold' },
