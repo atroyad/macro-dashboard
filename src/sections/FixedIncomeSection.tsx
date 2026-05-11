@@ -19,8 +19,12 @@ export function FixedIncomeSection() {
   const be5y    = useFRED('T5YIE',          fredApiKey, { frequency: 'd', observationStart: START_SHORT })
   const hySpread = useFRED('BAMLH0A0HYM2',  fredApiKey, { frequency: 'd', observationStart: START_SHORT })
   const igSpread = useFRED('BAMLC0A0CM',    fredApiKey, { frequency: 'd', observationStart: START_SHORT })
-  // VIX from FRED (CBOE Volatility Index, daily since 1990) — replaces CBOE:VIX embed (subscription)
-  const vix     = useFRED('VIXCLS',         fredApiKey, { frequency: 'd', observationStart: '2010-01-01' })
+
+  // International 10Y yields via FRED OECD series (TVC: feed restricted in embedded charts)
+  const jp10y = useFRED('IRLTLT01JPM156N', fredApiKey, { frequency: 'm', observationStart: '2000-01-01' })
+  const de10y = useFRED('IRLTLT01DEM156N', fredApiKey, { frequency: 'm', observationStart: '2000-01-01' })
+  const gb10y = useFRED('IRLTLT01GBM156N', fredApiKey, { frequency: 'm', observationStart: '2000-01-01' })
+  const cn10y = useFRED('IRLTLT01CNM156N', fredApiKey, { frequency: 'm', observationStart: '2005-01-01' })
 
   // 2s10s spread
   const spread2s10s = useMemo(() => {
@@ -110,7 +114,7 @@ export function FixedIncomeSection() {
         <NoApiKeyCard />
       )}
 
-      {/* VIX (FRED) + MOVE context */}
+      {/* VIX (FRED) + MOVE */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {fredApiKey ? (
           <ChartCard
@@ -118,67 +122,29 @@ export function FixedIncomeSection() {
             subtitle="CBOE Volatility Index, daily since 1990"
             height={320}
             badge="FRED"
-            note="VIX > 30 = fear; > 40 = panic. Embedded CBOE charts require subscription — using FRED feed."
+            note="VIX > 30 = fear; > 40 = panic."
           >
-            {vix.data.length > 0 ? (
-              <MacroChart
-                data={vix.data}
-                label="VIX"
-                color="#ef4444"
-                unit="%"
-                type="area"
-                refLine={30}
-                refLabel="30"
-              />
-            ) : (
-              <div className="h-full flex items-center justify-center text-text-muted text-sm">
-                {vix.loading ? 'Loading…' : 'No data'}
-              </div>
-            )}
+            {(() => {
+              // Load VIX inline to avoid re-declaring hook outside component
+              return null
+            })()}
+            <VixChart apiKey={fredApiKey} height={260} />
           </ChartCard>
         ) : (
           <NoApiKeyCard />
         )}
 
-        {/* MOVE info card — no free embed exists */}
-        <div className="bg-bg-card border border-accent-purple/30 rounded-xl p-5 flex flex-col gap-3">
-          <div className="flex items-center gap-2">
-            <span className="text-accent-purple text-lg">📊</span>
-            <h3 className="text-sm font-semibold text-text-primary">
-              MOVE Index — Treasury Volatility
-            </h3>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-accent-purple/20 text-accent-purple font-mono ml-auto">
-              Subscription
-            </span>
-          </div>
-          <p className="text-xs text-text-muted leading-relaxed">
-            The ICE BofA MOVE Index (bond market VIX) requires a Bloomberg or ICE data subscription
-            and cannot be embedded freely. MOVE &gt; 100 = elevated; &gt; 150 = crisis-level.
-          </p>
-          <div className="grid grid-cols-2 gap-3 mt-1">
-            {[
-              { level: 'MOVE < 80', status: 'Calm — Treasury auctions smooth', color: '#22c55e' },
-              { level: 'MOVE 80–100', status: 'Moderate uncertainty', color: '#f59e0b' },
-              { level: 'MOVE 100–150', status: 'Elevated — watch auctions', color: '#f97316' },
-              { level: 'MOVE > 150', status: 'Crisis — SVB/2020 level', color: '#ef4444' },
-            ].map(r => (
-              <div key={r.level} className="bg-bg-elevated rounded-lg p-2">
-                <p className="text-xs font-mono font-medium" style={{ color: r.color }}>{r.level}</p>
-                <p className="text-xs text-text-muted mt-0.5">{r.status}</p>
-              </div>
-            ))}
-          </div>
-          <p className="text-xs text-text-muted mt-1">
-            Track via{' '}
-            <a href="https://fred.stlouisfed.org" target="_blank" rel="noreferrer" className="text-accent-teal hover:underline">
-              FRED (search BAMLMOVE)
-            </a>
-            {' '}or{' '}
-            <a href="https://www.ice.com/market-data/analytics/fixed-income-analytics" target="_blank" rel="noreferrer" className="text-accent-teal hover:underline">
-              ICE website
-            </a>
-          </p>
-        </div>
+        {/* MOVE — viewable on tradingview.com but CBOE restricts embedded widgets */}
+        <ChartCard
+          title="MOVE Index — Treasury Volatility (CBOE:MOVE)"
+          subtitle="ICE BofA MOVE Index — bond market VIX equivalent"
+          height={320}
+          badge="TradingView"
+          badgeColor="#3b82f6"
+          note="MOVE > 100 = elevated; > 150 = crisis-level (SVB/2020). CBOE data is viewable on tradingview.com but CBOE restricts the embed license — use the link below."
+        >
+          <TradingViewChart symbol="CBOE:MOVE" interval="D" height={260} />
+        </ChartCard>
       </div>
 
       {fredApiKey ? (
@@ -285,33 +251,64 @@ export function FixedIncomeSection() {
             </ChartCard>
           </div>
 
-          {/* International bonds — TVC: feeds are TradingView's own composite (free) */}
+          {/* International sovereign yields — FRED OECD series */}
           <div>
-            <h3 className="text-sm font-medium text-text-secondary mb-3 uppercase tracking-wider">
-              International Sovereign Yields — TVC feeds (free)
+            <h3 className="text-sm font-medium text-text-secondary mb-1 uppercase tracking-wider">
+              International Sovereign 10Y Yields — FRED OECD Series
             </h3>
+            <p className="text-xs text-text-muted mb-3">
+              TVC: bond yield feeds (JP10Y, DE10Y, GB10Y, CN10Y) require a TradingView Pro subscription for embedded charts.
+              Using FRED OECD long-term interest rate series instead (monthly, lag ~1 month).
+            </p>
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              {[
-                { symbol: 'TVC:JP10Y', title: 'Japan JGB 10Y',     subtitle: 'BoJ YCC — key for carry trades' },
-                { symbol: 'TVC:DE10Y', title: 'Germany Bund 10Y',  subtitle: 'EU benchmark yield' },
-                { symbol: 'TVC:GB10Y', title: 'UK Gilt 10Y',       subtitle: 'Stagflation watch' },
-                { symbol: 'TVC:CN10Y', title: 'China CGB 10Y',     subtitle: 'PBoC policy signal' },
-              ].map(c => (
-                <ChartCard
-                  key={c.symbol}
-                  title={c.title}
-                  subtitle={c.subtitle}
-                  height={360}
-                  badge="TradingView"
-                  badgeColor="#3b82f6"
-                >
-                  <TradingViewChart symbol={c.symbol} interval="W" height={300} />
-                </ChartCard>
-              ))}
+              <ChartCard title="Japan JGB 10Y" subtitle="IRLTLT01JPM156N — BoJ YCC impact" height={320} badge="FRED">
+                {jp10y.data.length > 0 ? (
+                  <MacroChart data={jp10y.data} label="Japan 10Y" color="#ef4444" unit="%" type="line" refLine={1} />
+                ) : (
+                  <div className="h-full flex items-center justify-center text-text-muted text-sm">{jp10y.loading ? 'Loading…' : 'No data'}</div>
+                )}
+              </ChartCard>
+              <ChartCard title="Germany Bund 10Y" subtitle="IRLTLT01DEM156N — ECB benchmark" height={320} badge="FRED">
+                {de10y.data.length > 0 ? (
+                  <MacroChart data={de10y.data} label="Germany 10Y" color="#3b82f6" unit="%" type="line" refLine={0} />
+                ) : (
+                  <div className="h-full flex items-center justify-center text-text-muted text-sm">{de10y.loading ? 'Loading…' : 'No data'}</div>
+                )}
+              </ChartCard>
+              <ChartCard title="UK Gilt 10Y" subtitle="IRLTLT01GBM156N — stagflation watch" height={320} badge="FRED">
+                {gb10y.data.length > 0 ? (
+                  <MacroChart data={gb10y.data} label="UK 10Y" color="#8b5cf6" unit="%" type="line" />
+                ) : (
+                  <div className="h-full flex items-center justify-center text-text-muted text-sm">{gb10y.loading ? 'Loading…' : 'No data'}</div>
+                )}
+              </ChartCard>
+              <ChartCard title="China CGB 10Y" subtitle="IRLTLT01CNM156N — PBoC policy signal / deflation" height={320} badge="FRED">
+                {cn10y.data.length > 0 ? (
+                  <MacroChart data={cn10y.data} label="China 10Y" color="#f59e0b" unit="%" type="line" refLine={2} />
+                ) : (
+                  <div className="h-full flex items-center justify-center text-text-muted text-sm">{cn10y.loading ? 'Loading…' : 'No data'}</div>
+                )}
+              </ChartCard>
             </div>
           </div>
         </>
       ) : null}
+    </div>
+  )
+}
+
+// Isolated VIX chart component to keep hook rules clean
+function VixChart({ apiKey, height }: { apiKey: string; height: number }) {
+  const vix = useFRED('VIXCLS', apiKey, { frequency: 'd', observationStart: '2010-01-01' })
+  if (vix.data.length === 0)
+    return (
+      <div className="flex items-center justify-center text-text-muted text-sm" style={{ height }}>
+        {vix.loading ? 'Loading…' : 'No data'}
+      </div>
+    )
+  return (
+    <div style={{ height }}>
+      <MacroChart data={vix.data} label="VIX" color="#ef4444" unit="%" type="area" refLine={30} refLabel="30" />
     </div>
   )
 }

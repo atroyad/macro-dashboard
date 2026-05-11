@@ -4,13 +4,14 @@ import { TradingViewChart } from '../components/charts/TradingViewChart'
 import { ChartCard, NoApiKeyCard } from '../components/cards/MetricCard'
 import { MacroChart } from '../components/charts/MacroChart'
 
-// E-mini futures are universally free on TradingView (CME data)
-// Using these instead of index feeds which require exchange data subscriptions
+// US index ETFs — always free in TradingView embeds (NYSE/NASDAQ/AMEX listed)
+// CME E-mini futures (ES1!, NQ1!, RTY1!, YM1!) and index feeds (SP:SPX) require
+// exchange data subscriptions for embedded charts — ETFs are the free alternative.
 const equityCharts = [
-  { symbol: 'CME_MINI:ES1!',  title: 'S&P 500 (E-mini futures)',    subtitle: 'CME ES1! — free, real-time proxy', interval: 'W' },
-  { symbol: 'CME_MINI:NQ1!',  title: 'NASDAQ 100 (E-mini futures)', subtitle: 'CME NQ1! — free, real-time proxy', interval: 'W' },
-  { symbol: 'CME_MINI:RTY1!', title: 'Russell 2000 (E-mini futures)', subtitle: 'CME RTY1! — US small cap', interval: 'W' },
-  { symbol: 'CME_MINI:YM1!',  title: 'Dow Jones (E-mini futures)',   subtitle: 'CME YM1! — blue chip industrial', interval: 'W' },
+  { symbol: 'AMEX:SPY',    title: 'S&P 500 — SPY ETF',         subtitle: 'iShares S&P 500 — largest equity ETF', interval: 'W' },
+  { symbol: 'NASDAQ:QQQ',  title: 'NASDAQ 100 — QQQ ETF',       subtitle: 'Invesco QQQ — tech / growth proxy', interval: 'W' },
+  { symbol: 'AMEX:IWM',    title: 'Russell 2000 — IWM ETF',     subtitle: 'iShares Russell 2000 — US small cap', interval: 'W' },
+  { symbol: 'AMEX:DIA',    title: 'Dow Jones — DIA ETF',        subtitle: 'SPDR DJIA — 30 blue-chip industrials', interval: 'W' },
 ]
 
 const sectorCharts = [
@@ -27,7 +28,7 @@ const intlCharts = [
   { symbol: 'XETR:DAX',  title: 'DAX (Germany)',   subtitle: 'Industrials + financials', interval: 'W' },
   { symbol: 'AMEX:EWQ',  title: 'CAC 40 proxy (EWQ — iShares MSCI France)', subtitle: 'USD-denominated ETF', interval: 'W' },
   { symbol: 'AMEX:EWU',  title: 'FTSE 100 proxy (EWU — iShares MSCI UK)',   subtitle: 'USD-denominated ETF', interval: 'W' },
-  { symbol: 'CME:NKD1!', title: 'Nikkei 225 (CME NKD futures)',             subtitle: 'Yen-denominated index via CME', interval: 'W' },
+  { symbol: 'AMEX:EWJ',  title: 'Nikkei proxy — EWJ (iShares MSCI Japan)', subtitle: 'USD-denominated ETF — BoJ/JPY dynamics', interval: 'W' },
 ]
 
 export function EquitiesSection() {
@@ -113,7 +114,7 @@ export function EquitiesSection() {
       {/* US Indices — CME futures (universally free) */}
       <div>
         <h3 className="text-sm font-medium text-text-secondary mb-3 uppercase tracking-wider">
-          US Indices — CME E-mini Futures (free)
+          US Indices — ETF Proxies (free embed)
         </h3>
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
           {equityCharts.map(c => (
@@ -176,7 +177,7 @@ export function EquitiesSection() {
         </h3>
         <p className="text-xs text-text-muted mb-3">
           Note: CAC 40 and FTSE 100 exchange feeds require subscriptions — using iShares USD-denominated ETF proxies (EWQ, EWU).
-          DAX via XETR and Nikkei via CME futures are free.
+          DAX via XETR is free. Nikkei via EWJ (iShares MSCI Japan) — CME NKD1! futures require subscription for embeds.
         </p>
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
           {intlCharts.map(c => (

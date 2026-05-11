@@ -3,14 +3,16 @@ import { ChartCard } from '../components/cards/MetricCard'
 
 const CHART_HEIGHT = 380
 
+// TVC:DXY requires TradingView Pro for embedded charts — use CAPITALCOM:DXY (CapitalCom feed, free)
+// FX:USDBRL not available in all regions — use OANDA:USDBRL as backup
 const fxCharts = [
-  { symbol: 'TVC:DXY', title: 'DXY — Dollar Index', subtitle: 'Broad USD strength vs. major currencies', interval: 'W' },
+  { symbol: 'CAPITALCOM:DXY', title: 'DXY — Dollar Index', subtitle: 'Broad USD strength vs. major currencies', interval: 'W' },
   { symbol: 'FX:EURUSD', title: 'EUR/USD', subtitle: 'Euro — ECB policy divergence', interval: 'W' },
   { symbol: 'FX:USDJPY', title: 'USD/JPY', subtitle: 'Yen — carry trade / BoJ pressure', interval: 'W' },
   { symbol: 'FX:USDCHF', title: 'USD/CHF', subtitle: 'Swiss Franc — safe haven flow', interval: 'W' },
   { symbol: 'FX:USDCNH', title: 'USD/CNH (Offshore)', subtitle: 'Offshore yuan — PBoC devaluation risk', interval: 'W' },
   { symbol: 'FX:GBPUSD', title: 'GBP/USD', subtitle: 'Cable — UK stagflation watch', interval: 'W' },
-  { symbol: 'FX:USDBRL', title: 'USD/BRL', subtitle: 'Brazilian Real — EM liquidity signal', interval: 'W' },
+  { symbol: 'OANDA:USDBRL', title: 'USD/BRL', subtitle: 'Brazilian Real — EM liquidity signal', interval: 'W' },
   { symbol: 'FX:USDINR', title: 'USD/INR', subtitle: 'Indian Rupee — de-dollarization watch', interval: 'W' },
   { symbol: 'FX:USDKRW', title: 'USD/KRW', subtitle: 'Korean Won — Asia risk-off proxy', interval: 'W' },
   { symbol: 'TVC:GOLD', title: 'Gold / USD (XAU)', subtitle: 'Gold as reserve currency competitor', interval: 'W' },
@@ -58,7 +60,7 @@ export function CurrenciesSection() {
         badgeColor="#3b82f6"
         note="DXY declining = global dollar liquidity tightening easing. Watch for break of key support levels."
       >
-        <TradingViewChart symbol="TVC:DXY" interval="W" height={360} />
+        <TradingViewChart symbol="CAPITALCOM:DXY" interval="W" height={360} />
       </ChartCard>
 
       {/* FX grid */}

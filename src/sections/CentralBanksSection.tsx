@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useApp } from '../context/AppContext'
 import { useFRED } from '../hooks/useFRED'
 import { TradingViewChart } from '../components/charts/TradingViewChart'
@@ -11,16 +12,25 @@ export function CentralBanksSection() {
   const { fredApiKey } = useApp()
 
   // Fed
-  const fedBs = useFRED('WALCL', fredApiKey, { frequency: 'w', observationStart: START })
-  const tga = useFRED('WTREGEN', fredApiKey, { frequency: 'w', observationStart: START })
-  const rrp = useFRED('WLRRAL', fredApiKey, { frequency: 'w', observationStart: START })
+  const fedBs    = useFRED('WALCL',    fredApiKey, { frequency: 'w', observationStart: START })
+  const tga      = useFRED('WTREGEN',  fredApiKey, { frequency: 'w', observationStart: START })
+  const rrp      = useFRED('RRPONTSYD',fredApiKey, { frequency: 'w', observationStart: START })
   const fedFunds = useFRED('FEDFUNDS', fredApiKey, { frequency: 'm', observationStart: '1990-01-01' })
 
-  // ECB
+  // ECB — ECBASSETS: Total Assets of ECB, Millions of EUR, weekly
   const ecbBs = useFRED('ECBASSETS', fredApiKey, { frequency: 'w', observationStart: START })
 
-  // Gold central bank purchases proxy (World Gold Council data via FRED)
+  // Japan JGB 10Y (OECD long-term rate, monthly) — TVC:JP10Y restricted in embeds
+  const jp10y = useFRED('IRLTLT01JPM156N', fredApiKey, { frequency: 'm', observationStart: '2000-01-01' })
+  // China 10Y (OECD) — CN10Y TVC feed restricted in embeds
+  const cn10y = useFRED('IRLTLT01CNM156N', fredApiKey, { frequency: 'm', observationStart: '2005-01-01' })
+
+  // Gold central bank purchases proxy
   const goldCB = useFRED('GOLDAMGBD228NLBM', fredApiKey, { frequency: 'm', observationStart: '2000-01-01' })
+
+  // WALCL is in millions → divide by 1000 for $B, /1e6 for $T
+  const fedBsB = useMemo(() => fedBs.data.map(d => ({ date: d.date, value: d.value / 1000 })), [fedBs.data])
+  const tgaB   = useMemo(() => tga.data.map(d => ({ date: d.date, value: d.value / 1000 })), [tga.data])
 
   return (
     <div className="section-enter flex flex-col gap-6">
@@ -66,13 +76,13 @@ export function CentralBanksSection() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <ChartCard
             title="Federal Reserve Balance Sheet"
-            subtitle="Total Assets — QE and QT cycles visible"
+            subtitle="Total Assets ($B) — QE and QT cycles"
             height={320}
             badge="FRED"
             note="QE1 (2008), QE2 (2010), QE3 (2012–14), COVID QE (2020–22), current QT."
           >
-            {fedBs.data.length > 0 ? (
-              <MacroChart data={fedBs.data.map(d => ({ date: d.date, value: d.value / 1000 }))} label="Fed BS ($B)" color="#3b82f6" unit="B" denominate />
+            {fedBsB.length > 0 ? (
+              <MacroChart data={fedBsB} label="Fed BS ($B)" color="#3b82f6" unit="B" denominate />
             ) : (
               <div className="h-full flex items-center justify-center text-text-muted text-sm">Loading…</div>
             )}
@@ -92,20 +102,22 @@ export function CentralBanksSection() {
           </ChartCard>
 
           <ChartCard
-            title="ECB Balance Sheet"
-            subtitle="Total Assets — PSPP, PEPP, TLTRO programs visible"
+            title="ECB Balance Sheet (ECBASSETS)"
+            subtitle="Total Assets in €T — PSPP, PEPP, TLTRO programs visible"
             height={320}
             badge="FRED"
           >
             {ecbBs.data.length > 0 ? (
               <MacroChart
-                data={ecbBs.data.map((d) => ({ date: d.date, value: d.value / 1e6 }))}
+                data={ecbBs.data.map(d => ({ date: d.date, value: d.value / 1e6 }))}
                 label="ECB BS (€T)"
                 color="#8b5cf6"
                 unit="T"
               />
             ) : (
-              <div className="h-full flex items-center justify-center text-text-muted text-sm">Loading…</div>
+              <div className="h-full flex items-center justify-center text-text-muted text-sm">
+                {ecbBs.loading ? 'Loading…' : 'No data — ECB series may lag'}
+              </div>
             )}
           </ChartCard>
 
@@ -115,14 +127,14 @@ export function CentralBanksSection() {
             height={320}
             badge="FRED"
           >
-            {tga.data.length > 0 && rrp.data.length > 0 ? (
+            {tgaB.length > 0 && rrp.data.length > 0 ? (
               (() => {
-                const rrpMap = new Map(rrp.data.map((d) => [d.date, d.value]))
-                const combined = tga.data
-                  .filter((d) => rrpMap.has(d.date))
-                  .map((d) => ({
+                const rrpMap = new Map(rrp.data.map(d => [d.date, d.value]))
+                const combined = tgaB
+                  .filter(d => rrpMap.has(d.date))
+                  .map(d => ({
                     date: d.date,
-                    'TGA ($B)': d.value / 1000,
+                    'TGA ($B)': d.value,
                     'RRP ($B)': rrpMap.get(d.date) ?? 0,
                   }))
                 return (
@@ -171,13 +183,19 @@ export function CentralBanksSection() {
             <TradingViewChart symbol="FX:USDJPY" interval="W" height={260} />
           </ChartCard>
           <ChartCard
-            title="Japan JGB 10Y Yield"
-            subtitle="BoJ YCC cap — breaking higher signals policy stress"
+            title="Japan JGB 10Y Yield (OECD)"
+            subtitle="IRLTLT01JPM156N — BoJ YCC cap: breaking higher = policy stress"
             height={320}
-            badge="TradingView"
-            badgeColor="#3b82f6"
+            badge="FRED"
+            note="OECD long-term rate, monthly. TVC:JP10Y requires TradingView subscription for embeds."
           >
-            <TradingViewChart symbol="TVC:JP10Y" interval="W" height={260} />
+            {fredApiKey && jp10y.data.length > 0 ? (
+              <MacroChart data={jp10y.data} label="Japan 10Y (%)" color="#ef4444" unit="%" type="line" refLine={1} refLabel="1%" />
+            ) : (
+              <div className="h-full flex items-center justify-center text-text-muted text-sm">
+                {!fredApiKey ? 'Add FRED key' : jp10y.loading ? 'Loading…' : 'No data'}
+              </div>
+            )}
           </ChartCard>
         </div>
       </div>
@@ -198,13 +216,19 @@ export function CentralBanksSection() {
         </p>
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
           <ChartCard
-            title="China CGB 10Y Yield"
-            subtitle="Sub-2% = deflationary pressure; PBoC reflation attempts"
+            title="China CGB 10Y Yield (OECD)"
+            subtitle="IRLTLT01CNM156N — sub-2% = deflationary pressure"
             height={320}
-            badge="TradingView"
-            badgeColor="#3b82f6"
+            badge="FRED"
+            note="OECD long-term rate, monthly. TVC:CN10Y requires TradingView subscription for embeds."
           >
-            <TradingViewChart symbol="TVC:CN10Y" interval="W" height={260} />
+            {fredApiKey && cn10y.data.length > 0 ? (
+              <MacroChart data={cn10y.data} label="China 10Y (%)" color="#f59e0b" unit="%" type="line" refLine={2} refLabel="2%" />
+            ) : (
+              <div className="h-full flex items-center justify-center text-text-muted text-sm">
+                {!fredApiKey ? 'Add FRED key' : cn10y.loading ? 'Loading…' : 'No data'}
+              </div>
+            )}
           </ChartCard>
           <ChartCard
             title="USD/CNH (Offshore Yuan)"
@@ -241,7 +265,7 @@ export function CentralBanksSection() {
               { country: '🇵🇱 Poland NBP', detail: 'Largest European buyer; NATO border hedge' },
               { country: '🇹🇷 Turkey TCMB', detail: 'Volatile — retail + CB buying to defend lira' },
               { country: '🇸🇦 Saudi Arabia', detail: 'Petrogold signal: pricing oil in non-USD assets' },
-            ].map((r) => (
+            ].map(r => (
               <div key={r.country} className="flex gap-2 text-xs">
                 <span className="text-text-primary whitespace-nowrap">{r.country}:</span>
                 <span className="text-text-muted">{r.detail}</span>

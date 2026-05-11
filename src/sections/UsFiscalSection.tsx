@@ -17,13 +17,13 @@ export function UsFiscalSection() {
   const tga = useFRED('WTREGEN', fredApiKey, { frequency: 'w', observationStart: '2015-01-01' })
   const fedBs = useFRED('WALCL', fredApiKey, { frequency: 'w', observationStart: '2015-01-01' })
 
-  // Interest expense as % of revenue proxy — interest / GDP
+  // A091RC1Q027SBEA: Government interest payments, Billions USD, SAAR (annual rate)
+  // Divide by 1000 to convert $B → $T
   const interestGdp = useMemo(() => {
     if (!interestExp.data.length) return []
-    // Convert quarterly $M to annual rate as % of nominal GDP (approximate)
     return interestExp.data.map((d) => ({
       date: d.date,
-      value: (d.value * 4) / 1e6, // annualized $T
+      value: d.value / 1000, // $B SAAR → $T
     }))
   }, [interestExp.data])
 
@@ -52,7 +52,7 @@ export function UsFiscalSection() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <MetricCard
             label="Total Federal Debt"
-            value={lastDebt ? `$${(lastDebt / 1000).toFixed(1)}T` : null}
+            value={lastDebt ? `$${(lastDebt / 1e6).toFixed(1)}T` : null}
             subtitle="GFDEBTN — quarterly"
             color="#ef4444"
             loading={fedDebt.loading}
@@ -95,7 +95,7 @@ export function UsFiscalSection() {
             >
               {fedDebt.data.length > 0 ? (
                 <MacroChart
-                  data={fedDebt.data.map((d) => ({ date: d.date, value: d.value / 1000 }))}
+                  data={fedDebt.data.map((d) => ({ date: d.date, value: d.value / 1e6 }))}
                   label="Debt ($T)"
                   color="#ef4444"
                   unit="T"

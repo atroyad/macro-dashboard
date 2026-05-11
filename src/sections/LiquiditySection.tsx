@@ -10,7 +10,7 @@ const START = '2015-01-01'
 // FRED unit notes:
 // WALCL  = Millions of USD  → divide by 1000 to get $B for charts, /1e6 for T label
 // WTREGEN = Millions of USD → divide by 1000 to get $B for charts, /1000 for $B label
-// WLRRAL  = Billions of USD  → use directly
+// RRPONTSYD = Billions of USD → use directly (ON RRP facility balance)
 // M2SL    = Billions of USD  → use directly
 // BOGMBASE = Billions of USD → use directly
 // WRBWFRBL = Billions of USD → use directly (replaces discontinued TOTRESNS)
@@ -20,7 +20,7 @@ export function LiquiditySection() {
 
   const fedBs    = useFRED('WALCL',    fredApiKey, { frequency: 'w', observationStart: START })
   const tga      = useFRED('WTREGEN',  fredApiKey, { frequency: 'w', observationStart: START })
-  const rrp      = useFRED('WLRRAL',   fredApiKey, { frequency: 'w', observationStart: START })
+  const rrp      = useFRED('RRPONTSYD', fredApiKey, { frequency: 'w', observationStart: START })
   const reserves = useFRED('WRBWFRBL', fredApiKey, { frequency: 'w', observationStart: START })
   const m2       = useFRED('M2SL',     fredApiKey, { frequency: 'm', observationStart: START })
   const m0       = useFRED('BOGMBASE', fredApiKey, { frequency: 'm', observationStart: START })
