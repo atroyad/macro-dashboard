@@ -8,6 +8,7 @@ interface TradingViewChartProps {
   hideTopToolbar?: boolean
 }
 
+// Monotonically increasing counter — each mount gets a unique DOM id
 let widgetCounter = 0
 
 export function TradingViewChart({
@@ -18,17 +19,21 @@ export function TradingViewChart({
   hideTopToolbar = false,
 }: TradingViewChartProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+  // Stable per-instance ID: assigned once on first render, never changes
   const idRef = useRef(`tv_${++widgetCounter}`)
 
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
 
+    // Clear any previous widget
     container.innerHTML = ''
 
+    // TradingView needs this class on the inner div AND the outer div to have
+    // the matching id so it can locate the container via getElementById.
     const widgetDiv = document.createElement('div')
     widgetDiv.className = 'tradingview-widget-container__widget'
-    widgetDiv.style.height = 'calc(100% - 32px)'
+    widgetDiv.style.height = '100%'
     widgetDiv.style.width = '100%'
     container.appendChild(widgetDiv)
 
@@ -37,7 +42,8 @@ export function TradingViewChart({
     script.src =
       'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js'
     script.async = true
-    script.innerHTML = JSON.stringify({
+    // container_id must match the id attribute on the outer div below
+    script.textContent = JSON.stringify({
       autosize: true,
       symbol,
       interval,
@@ -64,6 +70,7 @@ export function TradingViewChart({
 
   return (
     <div
+      id={idRef.current}          // ← critical: TradingView locates container by this id
       ref={containerRef}
       className="tradingview-widget-container"
       style={{ height, width: '100%' }}
@@ -79,6 +86,7 @@ interface TradingViewMiniProps {
 
 export function TradingViewMini({ symbol, height = 180 }: TradingViewMiniProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const idRef = useRef(`tvm_${++widgetCounter}`)
 
   useEffect(() => {
     const container = containerRef.current
@@ -87,6 +95,8 @@ export function TradingViewMini({ symbol, height = 180 }: TradingViewMiniProps) 
 
     const widgetDiv = document.createElement('div')
     widgetDiv.className = 'tradingview-widget-container__widget'
+    widgetDiv.style.height = '100%'
+    widgetDiv.style.width = '100%'
     container.appendChild(widgetDiv)
 
     const script = document.createElement('script')
@@ -94,7 +104,7 @@ export function TradingViewMini({ symbol, height = 180 }: TradingViewMiniProps) 
     script.src =
       'https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js'
     script.async = true
-    script.innerHTML = JSON.stringify({
+    script.textContent = JSON.stringify({
       symbol,
       width: '100%',
       height,
@@ -115,6 +125,7 @@ export function TradingViewMini({ symbol, height = 180 }: TradingViewMiniProps) 
 
   return (
     <div
+      id={idRef.current}
       ref={containerRef}
       className="tradingview-widget-container"
       style={{ height, width: '100%' }}
@@ -136,7 +147,7 @@ export function TickerTape({ symbols }: { symbols: { proName: string; title: str
     script.src =
       'https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js'
     script.async = true
-    script.innerHTML = JSON.stringify({
+    script.textContent = JSON.stringify({
       symbols,
       showSymbolLogo: false,
       isTransparent: true,

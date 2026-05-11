@@ -28,7 +28,7 @@ export function CentralBanksSection() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <MetricCard
             label="Fed Total Assets"
-            value={fedBs.lastValue ? `$${(fedBs.lastValue / 1000).toFixed(1)}T` : null}
+            value={fedBs.lastValue ? `$${(fedBs.lastValue / 1e6).toFixed(1)}T` : null}
             subtitle="WALCL weekly"
             color="#3b82f6"
             loading={fedBs.loading}
@@ -72,7 +72,7 @@ export function CentralBanksSection() {
             note="QE1 (2008), QE2 (2010), QE3 (2012–14), COVID QE (2020–22), current QT."
           >
             {fedBs.data.length > 0 ? (
-              <MacroChart data={fedBs.data} label="Fed BS ($B)" color="#3b82f6" unit="B" denominate />
+              <MacroChart data={fedBs.data.map(d => ({ date: d.date, value: d.value / 1000 }))} label="Fed BS ($B)" color="#3b82f6" unit="B" denominate />
             ) : (
               <div className="h-full flex items-center justify-center text-text-muted text-sm">Loading…</div>
             )}

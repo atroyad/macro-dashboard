@@ -4,7 +4,7 @@ export type Section =
   | 'overview'
   | 'liquidity'
   | 'commodities'
-  | 'fixed-income'
+  | 'fiat-credit'
   | 'central-banks'
   | 'us-fiscal'
   | 'currencies'

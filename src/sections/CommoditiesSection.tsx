@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useApp } from '../context/AppContext'
 import { useFRED } from '../hooks/useFRED'
 import { TradingViewChart } from '../components/charts/TradingViewChart'
@@ -75,15 +76,19 @@ const commodityCharts = [
 export function CommoditiesSection() {
   const { fredApiKey } = useApp()
 
-  // FRED historical data for gold and oil (back to 1968 / 1986)
-  const goldFRED = useFRED('GOLDAMGBD228NLBM', fredApiKey, {
-    frequency: 'm',
-    observationStart: '1968-01-01',
-  })
-  const oilFRED = useFRED('DCOILWTICO', fredApiKey, {
-    frequency: 'm',
-    observationStart: '1986-01-01',
-  })
+  // FRED historical data — gold ($/oz) and oil ($/bbl) are direct price series, no unit conversion needed
+  const goldFRED = useFRED('GOLDAMGBD228NLBM', fredApiKey, { frequency: 'm', observationStart: '1968-01-01' })
+  const oilFRED  = useFRED('DCOILWTICO',       fredApiKey, { frequency: 'm', observationStart: '1986-01-01' })
+  const brentFRED = useFRED('DCOILBRENTEU',    fredApiKey, { frequency: 'm', observationStart: '1987-01-01' })
+
+  // Brent − WTI spread ($/bbl)
+  const brentWtiSpread = useMemo(() => {
+    if (!brentFRED.data.length || !oilFRED.data.length) return []
+    const wtiMap = new Map(oilFRED.data.map(d => [d.date, d.value]))
+    return brentFRED.data
+      .filter(d => wtiMap.has(d.date))
+      .map(d => ({ date: d.date, value: d.value - (wtiMap.get(d.date) ?? 0) }))
+  }, [brentFRED.data, oilFRED.data])
 
   return (
     <div className="section-enter flex flex-col gap-6">
@@ -199,13 +204,27 @@ export function CommoditiesSection() {
           Key signal: sustained drop in daily tanker transits → Brent/WTI premium spike.
           Monitor Brent–WTI spread as a proxy for Middle East supply risk premium.
         </p>
-        <div className="mt-3">
-          <TradingViewChart
-            symbol="TVC:UKOIL"
-            interval="D"
-            height={180}
-          />
-        </div>
+        {fredApiKey && brentWtiSpread.length > 0 ? (
+          <div className="mt-3" style={{ height: 200 }}>
+            <MacroChart
+              data={brentWtiSpread}
+              label="Brent − WTI ($/bbl)"
+              color="#f97316"
+              unit="$"
+              type="area"
+              refLine={0}
+            />
+          </div>
+        ) : (
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <div style={{ height: 200 }}>
+              <TradingViewChart symbol="TVC:UKOIL" interval="D" height={200} />
+            </div>
+            <div style={{ height: 200 }}>
+              <TradingViewChart symbol="TVC:USOIL" interval="D" height={200} />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Additional context */}

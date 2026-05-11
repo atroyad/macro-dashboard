@@ -58,14 +58,14 @@ export function CryptoSection() {
         </ChartCard>
 
         <ChartCard
-          title="Bitcoin Implied Volatility — BVIV"
-          subtitle="Bitcoin Volatility Index (INDEX:BVIV) — 30-day options-implied vol"
+          title="Bitcoin Volatility Index (BVOL)"
+          subtitle="BitMEX BVOL — 30-day realized volatility index"
           height={CHART_HEIGHT}
           badge="TradingView"
           badgeColor="#f59e0b"
-          note="BVIV > 80 = elevated risk. For Deribit DVOL (deeper options data) visit deribit.com/statistics."
+          note="BVOL > 80 = elevated risk / fear. For Deribit DVOL (deeper options data) visit deribit.com/statistics."
         >
-          <TradingViewChart symbol="INDEX:BVIV" interval="D" height={CHART_HEIGHT - 60} />
+          <TradingViewChart symbol="BITMEX:BVOL" interval="D" height={CHART_HEIGHT - 60} />
         </ChartCard>
 
         <ChartCard

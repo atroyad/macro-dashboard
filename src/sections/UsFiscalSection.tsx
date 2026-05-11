@@ -192,7 +192,7 @@ export function UsFiscalSection() {
               badge="FRED"
             >
               {fedBs.data.length > 0 ? (
-                <MacroChart data={fedBs.data} label="Fed Assets ($B)" color="#3b82f6" unit="B" denominate />
+                <MacroChart data={fedBs.data.map(d => ({ date: d.date, value: d.value / 1000 }))} label="Fed Assets ($B)" color="#3b82f6" unit="B" denominate />
               ) : (
                 <div className="h-full flex items-center justify-center text-text-muted text-sm">Loading…</div>
               )}

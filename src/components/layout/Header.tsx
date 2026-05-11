@@ -17,7 +17,7 @@ const SECTION_LABELS: Record<string, string> = {
   overview: 'Overview',
   liquidity: 'Global Liquidity & Credit',
   commodities: 'Commodities',
-  'fixed-income': 'Fixed Income & Rates',
+  'fiat-credit': 'Fiat Credit & Rates',
   'central-banks': 'Central Banks',
   'us-fiscal': 'US Fiscal & Debt',
   currencies: 'Currencies & FX',

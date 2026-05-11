@@ -42,7 +42,7 @@ export function OverviewSection() {
   // Key macro series
   const fedBs = useFRED('WALCL', fredApiKey, { frequency: 'w', observationStart: '2020-01-01' })
   const tga = useFRED('WTREGEN', fredApiKey, { frequency: 'w', observationStart: '2020-01-01' })
-  const reserves = useFRED('TOTRESNS', fredApiKey, { frequency: 'w', observationStart: '2020-01-01' })
+  const reserves = useFRED('WRBWFRBL', fredApiKey, { frequency: 'w', observationStart: '2020-01-01' })
   const m2 = useFRED('M2SL', fredApiKey, { frequency: 'm', observationStart: '2020-01-01' })
   const us10y = useFRED('DGS10', fredApiKey, { frequency: 'd', observationStart: '2023-01-01' })
   const sofr = useFRED('SOFR', fredApiKey, { frequency: 'd', observationStart: '2023-01-01' })
@@ -50,17 +50,17 @@ export function OverviewSection() {
   const cards = [
     {
       label: 'Fed Balance Sheet',
-      value: fmt(fedBs.lastValue, 'B'),
+      value: fedBs.lastValue ? `$${(fedBs.lastValue / 1e6).toFixed(1)}T` : null,
       change: pctChange(fedBs.lastValue, fedBs.prevValue),
       changeLabel: '%',
-      subtitle: 'WALCL — weekly, $B',
+      subtitle: 'WALCL — weekly, $M→T',
       color: '#3b82f6',
       icon: <Landmark size={14} />,
       loading: fedBs.loading,
     },
     {
       label: 'Treasury Gen. Account',
-      value: fedBs.lastValue ? `$${(tga.lastValue ?? 0 / 1e3).toFixed(1)}B` : null,
+      value: tga.lastValue ? `$${(tga.lastValue / 1000).toFixed(0)}B` : null,
       change: pctChange(tga.lastValue, tga.prevValue),
       changeLabel: '%',
       subtitle: 'WTREGEN — weekly',
@@ -73,7 +73,7 @@ export function OverviewSection() {
       value: reserves.lastValue ? `$${(reserves.lastValue / 1000).toFixed(1)}T` : null,
       change: pctChange(reserves.lastValue, reserves.prevValue),
       changeLabel: '%',
-      subtitle: 'TOTRESNS — weekly',
+      subtitle: 'WRBWFRBL — weekly',
       color: '#00d4aa',
       icon: <Activity size={14} />,
       loading: reserves.loading,
@@ -146,8 +146,8 @@ export function OverviewSection() {
           >
             {fedBs.data.length > 0 ? (
               <MacroChart
-                data={fedBs.data}
-                label="Fed BS"
+                data={fedBs.data.map(d => ({ date: d.date, value: d.value / 1000 }))}
+                label="Fed BS ($B)"
                 color="#3b82f6"
                 unit="B"
                 denominate

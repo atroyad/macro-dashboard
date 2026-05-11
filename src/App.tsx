@@ -21,7 +21,7 @@ function Dashboard() {
     overview: <OverviewSection />,
     liquidity: <LiquiditySection />,
     commodities: <CommoditiesSection />,
-    'fixed-income': <FixedIncomeSection />,
+    'fiat-credit': <FixedIncomeSection />,
     'central-banks': <CentralBanksSection />,
     'us-fiscal': <UsFiscalSection />,
     currencies: <CurrenciesSection />,
