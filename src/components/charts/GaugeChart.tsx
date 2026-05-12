@@ -77,6 +77,7 @@ export interface GaugeChartProps {
   greenMax: number
   redMin: number
   inverted?: boolean
+  neutral?: boolean   // no good/bad direction — render arc in a single steel-blue tone
   format: (v: number) => string
   loading?: boolean
   greenLabel?: string
@@ -122,6 +123,8 @@ function Tick({ f, cy, r }: { f: number; cy: number; r: number }) {
 }
 
 // ─── Main GaugeChart ──────────────────────────────────────────────────────────
+const NEUTRAL_ARC = '#2a4060'   // steel-blue — used for all zones when neutral=true
+
 export function GaugeChart({
   value,
   needles,
@@ -130,6 +133,7 @@ export function GaugeChart({
   greenMax,
   redMin,
   inverted = false,
+  neutral  = false,
   format,
   loading = false,
   greenLabel  = 'Safe',
@@ -143,27 +147,35 @@ export function GaugeChart({
   const fGreen = frac(greenMax, min, max)
   const fRed   = frac(redMin,   min, max)
 
-  const zones = inverted
+  const zones = neutral
     ? [
-        { f1: 0,      f2: fRed,   color: '#dc2626', label: redLabel    },
-        { f1: fRed,   f2: fGreen, color: '#d97706', label: yellowLabel },
-        { f1: fGreen, f2: 1,      color: '#16a34a', label: greenLabel  },
+        { f1: 0,      f2: fGreen, color: NEUTRAL_ARC, label: greenLabel  },
+        { f1: fGreen, f2: fRed,   color: NEUTRAL_ARC, label: yellowLabel },
+        { f1: fRed,   f2: 1,      color: NEUTRAL_ARC, label: redLabel    },
       ]
-    : [
-        { f1: 0,      f2: fGreen, color: '#16a34a', label: greenLabel  },
-        { f1: fGreen, f2: fRed,   color: '#d97706', label: yellowLabel },
-        { f1: fRed,   f2: 1,      color: '#dc2626', label: redLabel    },
-      ]
+    : inverted
+      ? [
+          { f1: 0,      f2: fRed,   color: '#dc2626', label: redLabel    },
+          { f1: fRed,   f2: fGreen, color: '#d97706', label: yellowLabel },
+          { f1: fGreen, f2: 1,      color: '#16a34a', label: greenLabel  },
+        ]
+      : [
+          { f1: 0,      f2: fGreen, color: '#16a34a', label: greenLabel  },
+          { f1: fGreen, f2: fRed,   color: '#d97706', label: yellowLabel },
+          { f1: fRed,   f2: 1,      color: '#dc2626', label: redLabel    },
+        ]
+
+  const needleColor = neutral ? '#94a3b8' : zoneColor(value ?? null, greenMax, redMin, inverted)
 
   const needleList: GaugeNeedle[] = needles
     ? needles
     : value != null
-      ? [{ value, color: zoneColor(value, greenMax, redMin, inverted), label: '' }]
+      ? [{ value, color: needleColor, label: '' }]
       : []
 
   // For multi-needle: display value is the HIGHEST non-null, with its color
   let displayVal: number | null = null
-  let displayColor = '#64748b'
+  let displayColor = neutral ? '#64748b' : '#64748b'
 
   if (isMulti) {
     const valid = needleList.filter(n => n.value !== null)
@@ -174,7 +186,7 @@ export function GaugeChart({
     }
   } else {
     displayVal   = value ?? null
-    displayColor = zoneColor(displayVal, greenMax, redMin, inverted)
+    displayColor = neutral ? '#94a3b8' : zoneColor(displayVal, greenMax, redMin, inverted)
   }
 
   const displayStr = loading ? '…' : displayVal != null ? format(displayVal) : 'N/A'
