@@ -1,227 +1,318 @@
 import { useApp } from '../context/AppContext'
 import { useFRED } from '../hooks/useFRED'
-import { MetricCard, ChartCard, NoApiKeyCard } from '../components/cards/MetricCard'
-import { MacroChart } from '../components/charts/MacroChart'
-import { TickerTape } from '../components/charts/TradingViewChart'
-import { TrendingUp, TrendingDown, Activity, Landmark, DollarSign, Zap } from 'lucide-react'
+import { GaugeChart, zoneColor } from '../components/charts/GaugeChart'
 
-const TICKER_SYMBOLS = [
-  { proName: 'SP:SPX', title: 'S&P 500' },
-  { proName: 'NASDAQ:NDX', title: 'NASDAQ 100' },
-  { proName: 'TVC:DXY', title: 'DXY' },
-  { proName: 'TVC:GOLD', title: 'Gold' },
-  { proName: 'TVC:SILVER', title: 'Silver' },
-  { proName: 'TVC:USOIL', title: 'WTI Oil' },
-  { proName: 'TVC:UKOIL', title: 'Brent Oil' },
-  { proName: 'BITSTAMP:BTCUSD', title: 'Bitcoin' },
-  { proName: 'TVC:US10Y', title: 'US 10Y' },
-  { proName: 'CBOE:VIX', title: 'VIX' },
-  { proName: 'TVC:JP10Y', title: 'JGB 10Y' },
-  { proName: 'TVC:DE10Y', title: 'Bund 10Y' },
-  { proName: 'FX:USDJPY', title: 'USD/JPY' },
-  { proName: 'FX:EURUSD', title: 'EUR/USD' },
-]
-
-function fmt(v: number | null, unit: string) {
-  if (v === null) return null
-  if (unit === 'B') return `$${(v / 1000).toFixed(1)}T`
-  if (unit === 'T') return `$${v.toFixed(2)}T`
-  if (unit === '%') return `${v.toFixed(2)}%`
-  if (unit === 'M$') return `$${(v / 1e6).toFixed(2)}T`
-  return v.toFixed(2)
+// ─── GaugeCard ───────────────────────────────────────────────────────────────
+interface GaugeCardProps {
+  title: string
+  subtitle: string
+  value: number | null
+  prev: number | null
+  loading: boolean
+  min: number
+  max: number
+  greenMax: number
+  redMin: number
+  format: (v: number) => string
+  /** Optional override for how the change delta is formatted */
+  formatDelta?: (delta: number) => string
 }
 
-function pctChange(last: number | null, prev: number | null) {
-  if (!last || !prev) return null
-  return ((last - prev) / Math.abs(prev)) * 100
+function GaugeCard({
+  title,
+  subtitle,
+  value,
+  prev,
+  loading,
+  min,
+  max,
+  greenMax,
+  redMin,
+  format,
+  formatDelta,
+}: GaugeCardProps) {
+  const delta = value !== null && prev !== null ? value - prev : null
+  const color = zoneColor(value, greenMax, redMin)
+  const fmtDelta = formatDelta ?? ((d: number) => `${d >= 0 ? '+' : ''}${format(Math.abs(d))}`)
+
+  return (
+    <div className="bg-bg-card border border-bg-border rounded-xl p-3 flex flex-col gap-1">
+      {/* Title row */}
+      <div className="flex items-start justify-between gap-1 min-h-[2.5rem]">
+        <p className="text-xs font-semibold text-text-primary leading-tight">{title}</p>
+        {delta !== null && (
+          <span
+            className="text-xs font-mono whitespace-nowrap shrink-0 mt-0.5"
+            style={{ color }}
+          >
+            ({fmtDelta(delta)})
+          </span>
+        )}
+      </div>
+
+      {/* Gauge SVG */}
+      <GaugeChart
+        value={value}
+        min={min}
+        max={max}
+        greenMax={greenMax}
+        redMin={redMin}
+        format={format}
+        loading={loading}
+      />
+
+      {/* Thresholds + subtitle */}
+      <div className="flex items-center justify-between text-[10px] font-mono mt-0.5">
+        <span style={{ color: '#22c55e' }}>Green &lt; {format(greenMax)}</span>
+        <span style={{ color: '#ef4444' }}>Red &gt; {format(redMin)}</span>
+      </div>
+      <p className="text-[10px] text-text-muted leading-tight">{subtitle}</p>
+    </div>
+  )
 }
 
+// ─── OverviewSection ─────────────────────────────────────────────────────────
 export function OverviewSection() {
   const { fredApiKey } = useApp()
 
-  // Key macro series
-  const fedBs = useFRED('WALCL', fredApiKey, { frequency: 'w', observationStart: '2020-01-01' })
-  const tga = useFRED('WTREGEN', fredApiKey, { frequency: 'w', observationStart: '2020-01-01' })
-  const reserves = useFRED('WRBWFRBL', fredApiKey, { frequency: 'w', observationStart: '2020-01-01' })
-  const m2 = useFRED('M2SL', fredApiKey, { frequency: 'm', observationStart: '2020-01-01' })
-  const us10y = useFRED('DGS10', fredApiKey, { frequency: 'd', observationStart: '2023-01-01' })
-  const sofr = useFRED('SOFR', fredApiKey, { frequency: 'd', observationStart: '2023-01-01' })
+  // All FRED series for gauges
+  // Daily series — start 2025 to keep fetches small
+  const S = '2025-01-01'
+  const move   = useFRED('BAMLMOVE',          fredApiKey, { frequency: 'd', observationStart: S })
+  const vix    = useFRED('VIXCLS',            fredApiKey, { frequency: 'd', observationStart: S })
+  const sofr   = useFRED('SOFR',              fredApiKey, { frequency: 'd', observationStart: S })
+  const iorb   = useFRED('IORB',              fredApiKey, { frequency: 'd', observationStart: S })
+  const us30y  = useFRED('DGS30',             fredApiKey, { frequency: 'd', observationStart: S })
+  const us10y  = useFRED('DGS10',             fredApiKey, { frequency: 'd', observationStart: S })
+  // DEXJPUS = Japanese Yen per 1 USD (same scale as USDJPY, e.g. 150)
+  const usdjpy = useFRED('DEXJPUS',           fredApiKey, { frequency: 'd', observationStart: S })
+  // DTWEXBGS = Nominal Broad US Dollar Index (goods), base 2006=100
+  // Scale ~90–130; thresholds adjusted to match this index (not ICE DXY)
+  const dxy    = useFRED('DTWEXBGS',          fredApiKey, { frequency: 'w', observationStart: '2024-01-01' })
+  const wti    = useFRED('DCOILWTICO',        fredApiKey, { frequency: 'd', observationStart: S })
+  const gold   = useFRED('GOLDAMGBD228NLBM',  fredApiKey, { frequency: 'd', observationStart: S })
+  // DEXCHUS = Chinese Yuan per 1 USD (e.g. 7.2 = ¥7.2 per $1)
+  const cny    = useFRED('DEXCHUS',           fredApiKey, { frequency: 'd', observationStart: S })
+  // SLVPRUSD = Silver Fixing Price London 12:00 noon, USD per troy oz (daily)
+  const silver = useFRED('SLVPRUSD',          fredApiKey, { frequency: 'd', observationStart: S })
+  // PCOPPUSDM = Copper, USD per metric ton (monthly)
+  const copper = useFRED('PCOPPUSDM',         fredApiKey, { frequency: 'm', observationStart: '2024-01-01' })
+  // CBBTCUSD = CoinBase Bitcoin USD (daily)
+  const btc    = useFRED('CBBTCUSD',          fredApiKey, { frequency: 'd', observationStart: S })
 
-  const cards = [
-    {
-      label: 'Fed Balance Sheet',
-      value: fedBs.lastValue ? `$${(fedBs.lastValue / 1e6).toFixed(1)}T` : null,
-      change: pctChange(fedBs.lastValue, fedBs.prevValue),
-      changeLabel: '%',
-      subtitle: 'WALCL — weekly, $M→T',
-      color: '#3b82f6',
-      icon: <Landmark size={14} />,
-      loading: fedBs.loading,
-    },
-    {
-      label: 'Treasury Gen. Account',
-      value: tga.lastValue ? `$${(tga.lastValue / 1000).toFixed(0)}B` : null,
-      change: pctChange(tga.lastValue, tga.prevValue),
-      changeLabel: '%',
-      subtitle: 'WTREGEN — weekly',
-      color: '#f59e0b',
-      icon: <DollarSign size={14} />,
-      loading: tga.loading,
-    },
-    {
-      label: 'Bank Reserves',
-      value: reserves.lastValue ? `$${(reserves.lastValue / 1000).toFixed(1)}T` : null,
-      change: pctChange(reserves.lastValue, reserves.prevValue),
-      changeLabel: '%',
-      subtitle: 'WRBWFRBL — weekly',
-      color: '#00d4aa',
-      icon: <Activity size={14} />,
-      loading: reserves.loading,
-    },
-    {
-      label: 'M2 Money Supply',
-      value: m2.lastValue ? `$${(m2.lastValue / 1000).toFixed(1)}T` : null,
-      change: pctChange(m2.lastValue, m2.prevValue),
-      changeLabel: '%',
-      subtitle: 'M2SL — monthly',
-      color: '#8b5cf6',
-      icon: <Zap size={14} />,
-      loading: m2.loading,
-    },
-    {
-      label: 'US 10Y Yield',
-      value: fmt(us10y.lastValue, '%'),
-      change: us10y.lastValue && us10y.prevValue ? us10y.lastValue - us10y.prevValue : null,
-      changeLabel: ' bps',
-      subtitle: 'DGS10 — daily',
-      color: '#ef4444',
-      icon: <TrendingUp size={14} />,
-      loading: us10y.loading,
-    },
-    {
-      label: 'SOFR',
-      value: fmt(sofr.lastValue, '%'),
-      change: sofr.lastValue && sofr.prevValue ? sofr.lastValue - sofr.prevValue : null,
-      changeLabel: ' bps',
-      subtitle: 'Secured Overnight Rate',
-      color: '#22c55e',
-      icon: <TrendingDown size={14} />,
-      loading: sofr.loading,
-    },
-  ]
+  // ── Derived metrics ─────────────────────────────────────────────────────────
 
-  return (
-    <div className="section-enter flex flex-col gap-6">
-      {/* Ticker Tape */}
-      <div className="bg-bg-card border border-bg-border rounded-xl overflow-hidden">
-        <TickerTape symbols={TICKER_SYMBOLS} />
-      </div>
+  // SOFR − IORB spread
+  const sofrIorbLast = sofr.lastValue !== null && iorb.lastValue !== null
+    ? sofr.lastValue - iorb.lastValue : null
+  const sofrIorbPrev = sofr.prevValue !== null && iorb.prevValue !== null
+    ? sofr.prevValue - iorb.prevValue : null
 
-      {/* KPI Cards */}
-      {fredApiKey ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
-          {cards.map((c) => (
-            <MetricCard key={c.label} {...c} />
-          ))}
-        </div>
-      ) : (
-        <div className="bg-bg-card border border-bg-border rounded-xl p-5 text-center">
+  // Gold in Chinese Yuan per troy oz
+  const goldCnyLast = gold.lastValue !== null && cny.lastValue !== null
+    ? gold.lastValue * cny.lastValue : null
+  const goldCnyPrev = gold.prevValue !== null && cny.prevValue !== null
+    ? gold.prevValue * cny.prevValue : null
+
+  // Gold / Oil ratio (how many barrels per oz of gold)
+  const goldOilLast = gold.lastValue !== null && wti.lastValue !== null && wti.lastValue > 0
+    ? gold.lastValue / wti.lastValue : null
+  const goldOilPrev = gold.prevValue !== null && wti.prevValue !== null && wti.prevValue > 0
+    ? gold.prevValue / wti.prevValue : null
+
+  // Gold / Silver ratio
+  const goldSilverLast = gold.lastValue !== null && silver.lastValue !== null && silver.lastValue > 0
+    ? gold.lastValue / silver.lastValue : null
+  const goldSilverPrev = gold.prevValue !== null && silver.prevValue !== null && silver.prevValue > 0
+    ? gold.prevValue / silver.prevValue : null
+
+  // Copper / Silver ratio: PCOPPUSDM is USD/metric ton → /2204.62 → USD/lb
+  // Ratio = (copper USD/lb) / (silver USD/oz) — dimensionally mixed but gives 0.1–0.3 range
+  const copperLb     = copper.lastValue !== null ? copper.lastValue / 2204.62 : null
+  const copperLbPrev = copper.prevValue !== null ? copper.prevValue / 2204.62 : null
+  const cuAgLast = copperLb !== null && silver.lastValue !== null && silver.lastValue > 0
+    ? copperLb / silver.lastValue : null
+  const cuAgPrev = copperLbPrev !== null && silver.prevValue !== null && silver.prevValue > 0
+    ? copperLbPrev / silver.prevValue : null
+
+  if (!fredApiKey) {
+    return (
+      <div className="section-enter flex items-center justify-center py-24">
+        <div className="text-center bg-bg-card border border-bg-border rounded-xl p-8">
+          <p className="text-text-secondary text-sm mb-1">Add your free FRED API key in</p>
           <p className="text-text-secondary text-sm">
-            Add your{' '}
-            <span className="text-accent-teal">free FRED API key</span>{' '}
-            in Settings ⚙ to unlock macro data cards and charts
+            <span className="text-accent-teal">Settings ⚙</span> to unlock all macro gauges
           </p>
         </div>
-      )}
+      </div>
+    )
+  }
 
-      {/* Liquidity proxy chart */}
-      {fredApiKey ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <ChartCard
-            title="Fed Balance Sheet"
-            subtitle="Total Assets (WALCL)"
-            height={280}
-            badge="FRED"
-            note="Denominator switching applies to FRED charts"
-          >
-            {fedBs.data.length > 0 ? (
-              <MacroChart
-                data={fedBs.data.map(d => ({ date: d.date, value: d.value / 1000 }))}
-                label="Fed BS ($B)"
-                color="#3b82f6"
-                unit="B"
-                denominate
-              />
-            ) : (
-              <div className="h-full flex items-center justify-center text-text-muted text-sm">
-                {fedBs.loading ? 'Loading...' : 'No data'}
-              </div>
-            )}
-          </ChartCard>
+  return (
+    <div className="section-enter flex flex-col gap-4">
+      <p className="text-xs text-text-muted">
+        Real-time macro risk gauges — FRED API. Green zone = benign, yellow = caution, red = stress.
+        Daily change in parentheses.
+      </p>
 
-          <ChartCard
-            title="Fed Reserves + TGA + M2"
-            subtitle="Key USD liquidity gauges"
-            height={280}
-            badge="FRED"
-          >
-            {m2.data.length > 0 ? (
-              <MacroChart
-                data={m2.data}
-                label="M2 ($B)"
-                color="#8b5cf6"
-                unit="B"
-                denominate
-              />
-            ) : (
-              <div className="h-full flex items-center justify-center text-text-muted text-sm">
-                {m2.loading ? 'Loading...' : 'No data'}
-              </div>
-            )}
-          </ChartCard>
-        </div>
-      ) : (
-        <NoApiKeyCard />
-      )}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
 
-      {/* Monetary system context */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {[
-          {
-            title: 'Petrodollar System',
-            desc: 'Oil sold in USD → surplus recycled into US Treasuries → sustains US deficit spending and dollar hegemony (Triffin dilemma).',
-            status: 'Eroding',
-            color: '#ef4444',
-          },
-          {
-            title: 'Gold / BIS Settlement',
-            desc: 'China & BRICS accumulating gold reserves. BIS includes gold as Tier 1 capital. Central bank gold buying at record highs.',
-            status: 'Rising',
-            color: '#f59e0b',
-          },
-          {
-            title: 'Bitcoin Reserve Asset',
-            desc: 'US Strategic Bitcoin Reserve executive order. Nation-state adoption. Potential backing for digital dollar or debt restructuring.',
-            status: 'Emerging',
-            color: '#00d4aa',
-          },
-        ].map((item) => (
-          <div
-            key={item.title}
-            className="bg-bg-card border border-bg-border rounded-xl p-4 flex flex-col gap-2"
-          >
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium text-text-primary">{item.title}</h3>
-              <span
-                className="text-xs px-2 py-0.5 rounded-full font-mono"
-                style={{ background: `${item.color}20`, color: item.color }}
-              >
-                {item.status}
-              </span>
-            </div>
-            <p className="text-xs text-text-muted leading-relaxed">{item.desc}</p>
-          </div>
-        ))}
+        {/* 1. Bond market volatility — MOVE */}
+        <GaugeCard
+          title="Bond Volatility — MOVE"
+          subtitle="ICE BofA MOVE Index (FRED: BAMLMOVE)"
+          value={move.lastValue}
+          prev={move.prevValue}
+          loading={move.loading}
+          min={0} max={200} greenMax={70} redMin={140}
+          format={(v) => v.toFixed(1)}
+          formatDelta={(d) => `${d >= 0 ? '+' : ''}${d.toFixed(1)}`}
+        />
+
+        {/* 2. Equity market volatility — VIX */}
+        <GaugeCard
+          title="Equity Volatility — VIX"
+          subtitle="CBOE Volatility Index (FRED: VIXCLS)"
+          value={vix.lastValue}
+          prev={vix.prevValue}
+          loading={vix.loading}
+          min={0} max={80} greenMax={14} redMin={28}
+          format={(v) => v.toFixed(1)}
+          formatDelta={(d) => `${d >= 0 ? '+' : ''}${d.toFixed(2)}`}
+        />
+
+        {/* 3. US banking stress — SOFR minus IORB */}
+        <GaugeCard
+          title="US Banking Stress — SOFR−IORB"
+          subtitle="Repo stress proxy. Neg = excess reserves (FRED: SOFR, IORB)"
+          value={sofrIorbLast}
+          prev={sofrIorbPrev}
+          loading={sofr.loading || iorb.loading}
+          min={-0.2} max={0.5} greenMax={0} redMin={0.1}
+          format={(v) => `${v.toFixed(3)}%`}
+          formatDelta={(d) => `${d >= 0 ? '+' : ''}${d.toFixed(3)}%`}
+        />
+
+        {/* 4. US fiscal pressure — US 30Y */}
+        <GaugeCard
+          title="US Fiscal Pressure — 30Y"
+          subtitle="US 30Y Treasury yield (FRED: DGS30)"
+          value={us30y.lastValue}
+          prev={us30y.prevValue}
+          loading={us30y.loading}
+          min={0} max={8} greenMax={2.5} redMin={5.0}
+          format={(v) => `${v.toFixed(2)}%`}
+          formatDelta={(d) => `${d >= 0 ? '+' : ''}${(d * 100).toFixed(1)} bps`}
+        />
+
+        {/* 5. US fiscal pressure — US 10Y */}
+        <GaugeCard
+          title="US Fiscal Pressure — 10Y"
+          subtitle="US 10Y Treasury yield (FRED: DGS10)"
+          value={us10y.lastValue}
+          prev={us10y.prevValue}
+          loading={us10y.loading}
+          min={0} max={7} greenMax={2.0} redMin={4.5}
+          format={(v) => `${v.toFixed(2)}%`}
+          formatDelta={(d) => `${d >= 0 ? '+' : ''}${(d * 100).toFixed(1)} bps`}
+        />
+
+        {/* 6. Japan hyperinflation — USDJPY */}
+        <GaugeCard
+          title="JPY Hyperinflation — USD/JPY"
+          subtitle="Yen per USD. >160 = BoJ/carry crisis (FRED: DEXJPUS)"
+          value={usdjpy.lastValue}
+          prev={usdjpy.prevValue}
+          loading={usdjpy.loading}
+          min={80} max={200} greenMax={100} redMin={160}
+          format={(v) => v.toFixed(1)}
+          formatDelta={(d) => `${d >= 0 ? '+' : ''}${d.toFixed(2)}`}
+        />
+
+        {/* 7. USD strength — Broad Dollar Index */}
+        <GaugeCard
+          title="USD Strength — Broad Dollar"
+          subtitle="Nominal Broad Dollar Index base 2006=100 (FRED: DTWEXBGS) — not ICE DXY"
+          value={dxy.lastValue}
+          prev={dxy.prevValue}
+          loading={dxy.loading}
+          min={90} max={135} greenMax={100} redMin={120}
+          format={(v) => v.toFixed(1)}
+          formatDelta={(d) => `${d >= 0 ? '+' : ''}${d.toFixed(2)}`}
+        />
+
+        {/* 8. Energy — WTI Oil */}
+        <GaugeCard
+          title="Energy — WTI Crude Oil"
+          subtitle="West Texas Intermediate spot, USD/bbl (FRED: DCOILWTICO)"
+          value={wti.lastValue}
+          prev={wti.prevValue}
+          loading={wti.loading}
+          min={0} max={200} greenMax={60} redMin={120}
+          format={(v) => `$${v.toFixed(0)}`}
+          formatDelta={(d) => `${d >= 0 ? '+' : ''}$${Math.abs(d).toFixed(2)}`}
+        />
+
+        {/* 9. Gold renaissance — Gold in Chinese Yuan */}
+        <GaugeCard
+          title="Gold Renaissance — Gold/CNY"
+          subtitle="Gold price in Chinese Yuan per troy oz (FRED: GOLD × DEXCHUS)"
+          value={goldCnyLast}
+          prev={goldCnyPrev}
+          loading={gold.loading || cny.loading}
+          min={0} max={50000} greenMax={30000} redMin={35000}
+          format={(v) => `¥${(v / 1000).toFixed(1)}k`}
+          formatDelta={(d) => `${d >= 0 ? '+' : ''}¥${Math.abs(d / 1000).toFixed(1)}k`}
+        />
+
+        {/* 10. Gold/Oil ratio */}
+        <GaugeCard
+          title="Commodity Ratio — Gold/Oil"
+          subtitle="Barrels of WTI per oz of gold. Rising = gold outperforming energy"
+          value={goldOilLast}
+          prev={goldOilPrev}
+          loading={gold.loading || wti.loading}
+          min={0} max={60} greenMax={20} redMin={40}
+          format={(v) => v.toFixed(1)}
+          formatDelta={(d) => `${d >= 0 ? '+' : ''}${d.toFixed(2)}`}
+        />
+
+        {/* 11. Gold/Silver ratio */}
+        <GaugeCard
+          title="Commodity Ratio — Gold/Silver"
+          subtitle="Oz of gold per oz of silver. <25 = silver bull; >120 = extreme stress"
+          value={goldSilverLast}
+          prev={goldSilverPrev}
+          loading={gold.loading || silver.loading}
+          min={0} max={150} greenMax={25} redMin={120}
+          format={(v) => v.toFixed(1)}
+          formatDelta={(d) => `${d >= 0 ? '+' : ''}${d.toFixed(2)}`}
+        />
+
+        {/* 12. Copper/Silver ratio */}
+        <GaugeCard
+          title="Commodity Ratio — Cu/Ag"
+          subtitle="(Cu USD/lb) ÷ (Ag USD/oz). Copper monthly data (FRED: PCOPPUSDM, SLVPRUSD)"
+          value={cuAgLast}
+          prev={cuAgPrev}
+          loading={copper.loading || silver.loading}
+          min={0} max={0.4} greenMax={0.1} redMin={0.3}
+          format={(v) => v.toFixed(3)}
+          formatDelta={(d) => `${d >= 0 ? '+' : ''}${d.toFixed(4)}`}
+        />
+
+        {/* 13. Bitcoin */}
+        <GaugeCard
+          title="Bitcoin Bear Market Thermometer"
+          subtitle="BTC/USD spot (FRED: CBBTCUSD via CoinBase)"
+          value={btc.lastValue}
+          prev={btc.prevValue}
+          loading={btc.loading}
+          min={0} max={200000} greenMax={65000} redMin={95000}
+          format={(v) => `$${(v / 1000).toFixed(0)}k`}
+          formatDelta={(d) => `${d >= 0 ? '+' : ''}$${Math.abs(d / 1000).toFixed(1)}k`}
+        />
+
       </div>
     </div>
   )
