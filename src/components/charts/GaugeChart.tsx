@@ -2,21 +2,18 @@
  * Semi-circular gauge — stroke-dasharray technique.
  *
  * Two internal layouts:
- *   Single needle  → arc at CY=100, R=80, viewBox 200×130
- *   Multi needle   → legend rows at top (y≈9, y≈20), arc shifted down to CY=112, R=75, viewBox 200×148
+ *   Single needle: CY=100, R=80, viewBox 200×130
+ *   Multi needle:  legend at top (y=9, y=21), arc at CY=114, R=74, viewBox 200×148
  */
 
-// ─── Single-needle geometry ───────────────────────────────────────────────────
 const CX  = 100
-const CY1 = 100   // single needle arc center Y
+const CY1 = 100   // single-needle arc center Y
 const R1  = 80
-const SW  = 24
+const CY2 = 114   // multi-needle arc center Y (legend takes top ~28px)
+const R2  = 74
+const SW  = 24    // arc stroke width
 
-// ─── Multi-needle geometry (legend at top pushes arc down) ────────────────────
-const CY2 = 112   // multi-needle arc center Y
-const R2  = 75
-
-function arc(cy: number, r: number) {
+function arcPath(cy: number, r: number) {
   return `M ${CX - r} ${cy} A ${r} ${r} 0 0 1 ${CX + r} ${cy}`
 }
 
@@ -29,7 +26,8 @@ function arcXY(f: number, cy: number, r: number): [number, number] {
   return [CX + r * Math.cos(a), cy - r * Math.sin(a)]
 }
 
-// ─── Color helper ─────────────────────────────────────────────────────────────
+// ─── Exports ──────────────────────────────────────────────────────────────────
+
 export function zoneColor(
   v: number | null,
   greenMax: number,
@@ -45,6 +43,23 @@ export function zoneColor(
     if (v >= greenMax) return '#22c55e'
     if (v <= redMin)   return '#ef4444'
     return '#f59e0b'
+  }
+}
+
+/** Color for a day-over-day delta shown in the card header.
+ *  stressInverted = true  → falling value is good  (MOVE, VIX, yields, oil, DXY, USDJPY)
+ *  stressInverted = false → rising value is good   (Gold, BTC, ratios)
+ */
+export function deltaColor(
+  delta: number | null,
+  stressInverted: boolean,
+): string {
+  if (delta === null) return '#64748b'
+  const positive = delta >= 0
+  if (stressInverted) {
+    return positive ? '#ef4444' : '#22c55e'   // rising = bad (red), falling = good (green)
+  } else {
+    return positive ? '#22c55e' : '#ef4444'   // rising = good (green), falling = bad (red)
   }
 }
 
@@ -69,12 +84,10 @@ export interface GaugeChartProps {
   redLabel?: string
 }
 
-// ─── One colored arc segment ──────────────────────────────────────────────────
+// ─── Colored arc segment ──────────────────────────────────────────────────────
 function ArcSeg({
   f1, f2, color, label, cy, r,
-}: {
-  f1: number; f2: number; color: string; label?: string; cy: number; r: number
-}) {
+}: { f1: number; f2: number; color: string; label?: string; cy: number; r: number }) {
   if (f2 <= f1 + 0.005) return null
   const len    = (f2 - f1) * 100
   const offset = -(f1 * 100)
@@ -83,7 +96,7 @@ function ArcSeg({
   return (
     <>
       <path
-        d={arc(cy, r)} fill="none" stroke={color} strokeWidth={SW}
+        d={arcPath(cy, r)} fill="none" stroke={color} strokeWidth={SW}
         pathLength="100"
         strokeDasharray={`${len} 100`}
         strokeDashoffset={`${offset}`}
@@ -100,7 +113,7 @@ function ArcSeg({
   )
 }
 
-// ─── Zone boundary tick ───────────────────────────────────────────────────────
+// ─── Boundary tick ────────────────────────────────────────────────────────────
 function Tick({ f, cy, r }: { f: number; cy: number; r: number }) {
   if (f <= 0.005 || f >= 0.995) return null
   const [x1, y1] = arcXY(f, cy, r - SW / 2 - 1)
@@ -133,23 +146,22 @@ export function GaugeChart({
   const zones = inverted
     ? [
         { f1: 0,      f2: fRed,   color: '#dc2626', label: redLabel    },
-        { f1: fRed,   f2: fGreen, color: '#d97706', label: yellowLabel  },
-        { f1: fGreen, f2: 1,      color: '#16a34a', label: greenLabel   },
+        { f1: fRed,   f2: fGreen, color: '#d97706', label: yellowLabel },
+        { f1: fGreen, f2: 1,      color: '#16a34a', label: greenLabel  },
       ]
     : [
-        { f1: 0,      f2: fGreen, color: '#16a34a', label: greenLabel   },
-        { f1: fGreen, f2: fRed,   color: '#d97706', label: yellowLabel  },
-        { f1: fRed,   f2: 1,      color: '#dc2626', label: redLabel     },
+        { f1: 0,      f2: fGreen, color: '#16a34a', label: greenLabel  },
+        { f1: fGreen, f2: fRed,   color: '#d97706', label: yellowLabel },
+        { f1: fRed,   f2: 1,      color: '#dc2626', label: redLabel    },
       ]
 
-  // Build needle list
   const needleList: GaugeNeedle[] = needles
     ? needles
     : value != null
       ? [{ value, color: zoneColor(value, greenMax, redMin, inverted), label: '' }]
       : []
 
-  // Primary display value: for multi, use highest non-null value with its color
+  // For multi-needle: display value is the HIGHEST non-null, with its color
   let displayVal: number | null = null
   let displayColor = '#64748b'
 
@@ -167,57 +179,56 @@ export function GaugeChart({
 
   const displayStr = loading ? '…' : displayVal != null ? format(displayVal) : 'N/A'
 
-  // viewBox size depends on layout
-  const vbH = isMulti ? 148 : 130
-
-  // Legend rows (multi only) — placed at TOP of SVG before arc
+  // Multi-needle legend: 2 items per row, spaced to fit within 200px wide SVG
   const row1 = isMulti ? needleList.slice(0, 2) : []
   const row2 = isMulti ? needleList.slice(2)    : []
+
+  // For N items in a row, gap them so they fit: each slot = 90px wide, centered on CX=100
+  function legendX(i: number, total: number) {
+    if (total === 1) return 0
+    const slot = 88  // px per slot
+    const totalW = (total - 1) * slot
+    return -totalW / 2 + i * slot
+  }
+
+  const vbH = isMulti ? 148 : 130
 
   return (
     <svg viewBox={`0 0 200 ${vbH}`} className="w-full">
 
-      {/* ── Multi-needle legend at TOP ──────────────────────────── */}
+      {/* ── Multi-needle legend — TOP of SVG ───────────────────── */}
       {isMulti && (
         <>
-          {/* Row 1 — first 2 needles */}
-          <g transform="translate(100, 9)">
-            {row1.map((n, i) => {
-              const x = row1.length === 1 ? 0 : -55 + i * 110
-              return (
-                <g key={i} transform={`translate(${x}, 0)`}>
+          <g transform={`translate(${CX}, 10)`}>
+            {row1.map((n, i) => (
+              <g key={i} transform={`translate(${legendX(i, row1.length)}, 0)`}>
+                <circle cx="0" cy="0" r="4" fill={n.value !== null ? n.color : '#475569'} />
+                <text x="7" y="1" fill="#cbd5e1" fontSize="8.5"
+                  dominantBaseline="middle" fontFamily="system-ui, sans-serif">
+                  {n.label}{n.value !== null ? ` ${format(n.value)}` : ' N/A'}
+                </text>
+              </g>
+            ))}
+          </g>
+          {row2.length > 0 && (
+            <g transform={`translate(${CX}, 22)`}>
+              {row2.map((n, i) => (
+                <g key={i} transform={`translate(${legendX(i, row2.length)}, 0)`}>
                   <circle cx="0" cy="0" r="4" fill={n.value !== null ? n.color : '#475569'} />
                   <text x="7" y="1" fill="#cbd5e1" fontSize="8.5"
                     dominantBaseline="middle" fontFamily="system-ui, sans-serif">
                     {n.label}{n.value !== null ? ` ${format(n.value)}` : ' N/A'}
                   </text>
                 </g>
-              )
-            })}
-          </g>
-          {/* Row 2 — remaining needles */}
-          {row2.length > 0 && (
-            <g transform="translate(100, 21)">
-              {row2.map((n, i) => {
-                const x = row2.length === 1 ? 0 : -55 + i * 110
-                return (
-                  <g key={i} transform={`translate(${x}, 0)`}>
-                    <circle cx="0" cy="0" r="4" fill={n.value !== null ? n.color : '#475569'} />
-                    <text x="7" y="1" fill="#cbd5e1" fontSize="8.5"
-                      dominantBaseline="middle" fontFamily="system-ui, sans-serif">
-                      {n.label}{n.value !== null ? ` ${format(n.value)}` : ' N/A'}
-                    </text>
-                  </g>
-                )
-              })}
+              ))}
             </g>
           )}
         </>
       )}
 
       {/* ── Background track ───────────────────────────────────── */}
-      <path d={arc(cy, r)} fill="none" stroke="#1a1a2e" strokeWidth={SW + 6}
-        pathLength="100" strokeLinecap="butt" />
+      <path d={arcPath(cy, r)} fill="none" stroke="#1a1a2e"
+        strokeWidth={SW + 6} pathLength="100" strokeLinecap="butt" />
 
       {/* ── Colored zone arcs ──────────────────────────────────── */}
       {zones.map((z, i) => (
@@ -248,7 +259,7 @@ export function GaugeChart({
       <circle cx={CX} cy={cy} r="9"   fill="#0d0d1a" stroke="#334155" strokeWidth="1.5" />
       <circle cx={CX} cy={cy} r="4.5" fill={loading ? '#475569' : displayColor} />
 
-      {/* ── Primary value (below hub, in arc opening) ──────────── */}
+      {/* ── Primary value ──────────────────────────────────────── */}
       <text x={CX} y={cy + 24} textAnchor="middle"
         fill={loading ? '#64748b' : displayColor}
         fontSize="13" fontWeight="700"
