@@ -74,7 +74,9 @@ export function OverviewSection() {
   // Oil front-month futures — same delivery horizon
   const clf  = useYahoo('CL=F')      // NYMEX WTI front-month
   const bzf  = useYahoo('BZ=F')      // ICE Brent front-month
-  const mcof = useYahoo('MCO=F')     // ICE Murban front-month (Abu Dhabi — Hormuz proxy)
+  // Murban (ICE Abu Dhabi) — MCO=F not in Yahoo database; use Oman DME crude OQD=F as
+  // nearest proxy (same Persian Gulf / Hormuz exposure, same delivery region)
+  const mcof = useYahoo('OQD=F')     // DME Oman crude front-month (Hormuz proxy)
 
   // ── Derived ───────────────────────────────────────────────────────────────
 
@@ -255,7 +257,7 @@ export function OverviewSection() {
           formatDelta={(d) => `${d >= 0 ? '+' : ''}$${Math.abs(d).toFixed(0)}`}
         >
           <GaugeChart
-            value={gcf.value} min={1500} max={7000} greenMax={4000} redMin={5500}
+            value={gcf.value} min={2500} max={7000} greenMax={3500} redMin={5500}
             format={(v) => `$${(v / 1000).toFixed(1)}k`} loading={gcf.loading}
             greenLabel="Deep Value" yellowLabel="Consolidation" redLabel="Repricing"
           />
@@ -271,7 +273,7 @@ export function OverviewSection() {
           formatDelta={(d) => `${d >= 0 ? '+' : ''}¥${Math.abs(d / 1000).toFixed(1)}k`}
         >
           <GaugeChart
-            value={goldCnyV} min={10000} max={50000} greenMax={30000} redMin={35000}
+            value={goldCnyV} min={20000} max={50000} greenMax={25000} redMin={35000}
             format={(v) => `¥${(v / 1000).toFixed(0)}k`} loading={gcf.loading || cnyx.loading}
             greenLabel="Deep Value" yellowLabel="Consolidation" redLabel="Repricing"
           />
@@ -301,8 +303,8 @@ export function OverviewSection() {
         {/* 11 ── Oil Futures — WTI + Brent + Murban (Yahoo) ────────────────── */}
         <GaugeCard
           title="Energy — Oil Futures (Front Month)"
-          subtitle="WTI + Brent + Murban front-month — same delivery horizon. Highest shown. Murban = ICE Abu Dhabi / Hormuz proxy."
-          source="Yahoo CL=F BZ=F MCO=F"
+          subtitle="WTI + Brent + Oman DME front-month — same delivery horizon. Highest shown. Oman crude = Persian Gulf / Hormuz price signal."
+          source="Yahoo CL=F BZ=F OQD=F"
           delta={clf.value !== null && clf.prev !== null ? clf.value - clf.prev : null}
           deltaColor={zoneColor(clf.value, 60, 120)}
           formatDelta={(d) => `WTI ${d >= 0 ? '+' : ''}$${Math.abs(d).toFixed(2)}`}
@@ -311,7 +313,7 @@ export function OverviewSection() {
             needles={[
               { value: clf.value,  color: '#3b82f6', label: 'WTI'    },
               { value: bzf.value,  color: '#f59e0b', label: 'Brent'  },
-              { value: mcof.value, color: '#8b5cf6', label: 'Murban' },
+              { value: mcof.value, color: '#8b5cf6', label: 'Oman' },
             ]}
             min={0} max={200} greenMax={60} redMin={120}
             format={(v) => `$${v.toFixed(0)}`}
@@ -348,7 +350,7 @@ export function OverviewSection() {
           <GaugeChart
             value={gsV} min={0} max={150} greenMax={25} redMin={120}
             format={(v) => v.toFixed(1)} loading={gcf.loading || sif.loading}
-            greenLabel="Silver Bull" yellowLabel="Normal" redLabel="Extreme"
+            greenLabel="Rotate Silver" yellowLabel="Normal" redLabel="Rotate Gold"
           />
         </GaugeCard>
 
@@ -364,7 +366,7 @@ export function OverviewSection() {
           <GaugeChart
             value={cuAgV} min={0} max={0.4} greenMax={0.1} redMin={0.3}
             format={(v) => v.toFixed(3)} loading={hgf.loading || sif.loading}
-            greenLabel="Copper Bull" yellowLabel="Normal" redLabel="Extreme"
+            greenLabel="Rotate Silver" yellowLabel="Normal" redLabel="Rotate Copper"
           />
         </GaugeCard>
 
@@ -378,7 +380,7 @@ export function OverviewSection() {
           formatDelta={(d) => `${d >= 0 ? '+' : ''}$${Math.abs(d / 1000).toFixed(1)}k`}
         >
           <GaugeChart
-            value={btc.lastValue} min={0} max={200000} greenMax={65000} redMin={95000}
+            value={btc.lastValue} min={40000} max={200000} greenMax={65000} redMin={95000}
             format={(v) => `$${(v / 1000).toFixed(0)}k`} loading={btc.loading}
             greenLabel="Deep Value" yellowLabel="Chopsolidation" redLabel="Bullish Again"
           />
@@ -397,12 +399,14 @@ export function OverviewSection() {
           balance sheets net of sterilization flows).
         </div>
         <div className="bg-bg-card border border-bg-border rounded-xl px-4 py-3 text-[10.5px] text-text-muted leading-relaxed">
-          <span className="text-text-secondary font-semibold">Murban crude as Hormuz proxy: </span>
-          Murban is the ICE Abu Dhabi benchmark — priced at Fujairah terminal, which sits
-          immediately east of the Strait of Hormuz. Any disruption to tanker flow raises Murban
-          disproportionately vs WTI/Brent. A widening Murban premium signals Hormuz stress before
-          it appears in headline crude prices. Real-time vessel counts require commercial data
-          (Kpler, Vortexa, MarineTraffic Enterprise).
+          <span className="text-text-secondary font-semibold">Oman crude as Hormuz proxy: </span>
+          Oman crude (DME, OQD=F) is priced at Fujairah — immediately east of the Strait of
+          Hormuz. It is the de facto Asian/Persian Gulf benchmark and the primary pricing reference
+          for Saudi, UAE, and Iranian exports to Asia. Any tanker flow disruption raises Oman
+          crude disproportionately vs WTI/Brent. A widening Oman premium signals Hormuz stress
+          before it appears in headline prices. Real-time vessel counts require commercial data
+          (Kpler, Vortexa, MarineTraffic Enterprise). ICE Murban (MCO=F) is not available via
+          Yahoo Finance — Oman DME is the closest freely-available equivalent.
         </div>
       </div>
     </div>
