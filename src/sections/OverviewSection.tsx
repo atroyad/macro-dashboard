@@ -7,20 +7,23 @@ import { GaugeChart, zoneColor } from '../components/charts/GaugeChart'
 interface GaugeCardProps {
   title: string
   subtitle: string
-  children: React.ReactNode   // the <GaugeChart /> element
+  source?: string
   delta: number | null
   deltaColor: string
   formatDelta: (d: number) => string
-  source?: string
+  children: React.ReactNode
 }
 
-function GaugeCard({ title, subtitle, children, delta, deltaColor, formatDelta, source }: GaugeCardProps) {
+function GaugeCard({ title, subtitle, source, delta, deltaColor, formatDelta, children }: GaugeCardProps) {
   return (
     <div className="bg-bg-card border border-bg-border rounded-xl p-3 flex flex-col gap-1">
       <div className="flex items-start justify-between gap-1 min-h-[2.2rem]">
         <p className="text-[11px] font-semibold text-text-primary leading-tight">{title}</p>
         {delta !== null && (
-          <span className="text-[11px] font-mono whitespace-nowrap shrink-0 leading-tight" style={{ color: deltaColor }}>
+          <span
+            className="text-[11px] font-mono whitespace-nowrap shrink-0 leading-tight"
+            style={{ color: deltaColor }}
+          >
             ({delta >= 0 ? '+' : ''}{formatDelta(delta)})
           </span>
         )}
@@ -28,10 +31,12 @@ function GaugeCard({ title, subtitle, children, delta, deltaColor, formatDelta, 
 
       {children}
 
-      <div className="flex items-center justify-between text-[9.5px] font-mono mt-0.5">
-        <span className="text-text-muted truncate">{subtitle}</span>
+      <div className="flex items-center justify-between gap-1 mt-0.5">
+        <p className="text-[9.5px] text-text-muted leading-tight truncate">{subtitle}</p>
         {source && (
-          <span className="text-[9px] px-1.5 py-0.5 rounded bg-bg-elevated text-text-muted shrink-0 ml-1">{source}</span>
+          <span className="text-[8.5px] px-1.5 py-0.5 rounded bg-bg-elevated text-text-muted shrink-0 font-mono">
+            {source}
+          </span>
         )}
       </div>
     </div>
@@ -42,69 +47,71 @@ function GaugeCard({ title, subtitle, children, delta, deltaColor, formatDelta, 
 export function OverviewSection() {
   const { fredApiKey } = useApp()
 
-  // ── FRED data ────────────────────────────────────────────────────────────
   const S = '2025-01-01'
 
-  // VIX, SOFR, IORB, US yields — FRED
+  // ── FRED series ──────────────────────────────────────────────────────────
   const vix    = useFRED('VIXCLS',           fredApiKey, { frequency: 'd', observationStart: S })
   const sofr   = useFRED('SOFR',             fredApiKey, { frequency: 'd', observationStart: S })
   const iorb   = useFRED('IORB',             fredApiKey, { frequency: 'd', observationStart: S })
   const us30y  = useFRED('DGS30',            fredApiKey, { frequency: 'd', observationStart: S })
   const us10y  = useFRED('DGS10',            fredApiKey, { frequency: 'd', observationStart: S })
   const usdjpy = useFRED('DEXJPUS',          fredApiKey, { frequency: 'd', observationStart: S })
-
-  // Commodities
+  // Gold: LBMA daily (for Gold USD gauge and Gold/CNY)
   const gold   = useFRED('GOLDAMGBD228NLBM', fredApiKey, { frequency: 'd', observationStart: S })
-  const wti    = useFRED('DCOILWTICO',       fredApiKey, { frequency: 'd', observationStart: S })
-  const brent  = useFRED('DCOILBRENTEU',     fredApiKey, { frequency: 'd', observationStart: S })
-  const silver = useFRED('SLVPRUSD',         fredApiKey, { frequency: 'd', observationStart: S })
-  const copper = useFRED('PCOPPUSDM',        fredApiKey, { frequency: 'm', observationStart: '2024-01-01' })
+  // WTI + Brent spot (for spot oil gauge — FRED daily)
+  const wtiF   = useFRED('DCOILWTICO',       fredApiKey, { frequency: 'd', observationStart: S })
+  const brentF = useFRED('DCOILBRENTEU',     fredApiKey, { frequency: 'd', observationStart: S })
+  // CNY for gold/CNY cross
   const cny    = useFRED('DEXCHUS',          fredApiKey, { frequency: 'd', observationStart: S })
-
-  // Bitcoin
+  // Bitcoin via FRED (CoinBase daily)
   const btc    = useFRED('CBBTCUSD',         fredApiKey, { frequency: 'd', observationStart: S })
 
-  // ── Yahoo Finance — for ICE DXY and MOVE (not freely available on FRED) ──
-  // DX-Y.NYB = ICE US Dollar Index futures (continuous)
-  const dxy  = useYahoo('DX-Y.NYB')
-  // ^MOVE = ICE BofA MOVE Treasury Volatility Index
-  const move = useYahoo('^MOVE')
-  // Front-month WTI and Brent futures (for the "equivalent delivery" gauge)
-  const clf  = useYahoo('CL=F')   // NYMEX WTI front-month
-  const bzf  = useYahoo('BZ=F')   // ICE Brent front-month
+  // ── Yahoo Finance — ICE DXY, MOVE, front-month futures & commodity prices ─
+  // Volatility
+  const move = useYahoo('^MOVE')       // ICE BofA MOVE Index
+  // Dollar
+  const dxy  = useYahoo('DX-Y.NYB')   // ICE Dollar Index (DXY)
+  // Oil front-month futures (same delivery horizon = comparable)
+  const clf  = useYahoo('CL=F')        // NYMEX WTI front-month
+  const bzf  = useYahoo('BZ=F')        // ICE Brent front-month
+  const mcof = useYahoo('MCO=F')       // ICE Murban (Abu Dhabi/Asian Gulf benchmark)
+  // Commodity prices for ratios (Yahoo ensures same-timestamp, avoids FRED proxy lag)
+  const gcf  = useYahoo('GC=F')        // COMEX Gold front-month (USD/oz)
+  const sif  = useYahoo('SI=F')        // COMEX Silver front-month (USD/oz)
+  const hgf  = useYahoo('HG=F')        // COMEX Copper front-month (USD/lb)
 
-  // ── Derived metrics ──────────────────────────────────────────────────────
+  // ── Derived values ────────────────────────────────────────────────────────
 
-  const sofrIorbLast = sofr.lastValue !== null && iorb.lastValue !== null
+  // SOFR − IORB spread
+  const sofrIorbV = sofr.lastValue !== null && iorb.lastValue !== null
     ? sofr.lastValue - iorb.lastValue : null
-  const sofrIorbPrev = sofr.prevValue !== null && iorb.prevValue !== null
+  const sofrIorbP = sofr.prevValue !== null && iorb.prevValue !== null
     ? sofr.prevValue - iorb.prevValue : null
 
-  // Gold/CNY
-  const goldCnyLast = gold.lastValue !== null && cny.lastValue !== null
+  // Gold/CNY: LBMA gold × (CNY per USD) = gold in CNY/oz
+  const goldCnyV = gold.lastValue !== null && cny.lastValue !== null
     ? gold.lastValue * cny.lastValue : null
-  const goldCnyPrev = gold.prevValue !== null && cny.prevValue !== null
+  const goldCnyP = gold.prevValue !== null && cny.prevValue !== null
     ? gold.prevValue * cny.prevValue : null
 
-  // Gold/Oil (Howell uses WTI — how many barrels of WTI per troy oz of gold)
-  const goldOilLast = gold.lastValue !== null && wti.lastValue !== null && wti.lastValue > 0
-    ? gold.lastValue / wti.lastValue : null
-  const goldOilPrev = gold.prevValue !== null && wti.prevValue !== null && wti.prevValue > 0
-    ? gold.prevValue / wti.prevValue : null
+  // Gold/Oil ratio (Howell): uses front-month futures for consistent comparison
+  // GC=F (gold, USD/oz) / CL=F (WTI, USD/bbl) = barrels of WTI per oz of gold
+  const goldOilV = gcf.value !== null && clf.value !== null && clf.value > 0
+    ? gcf.value / clf.value : null
+  const goldOilP = gcf.prev !== null && clf.prev !== null && clf.prev > 0
+    ? gcf.prev / clf.prev : null
 
-  // Gold/Silver ratio
-  const goldSilverLast = gold.lastValue !== null && silver.lastValue !== null && silver.lastValue > 0
-    ? gold.lastValue / silver.lastValue : null
-  const goldSilverPrev = gold.prevValue !== null && silver.prevValue !== null && silver.prevValue > 0
-    ? gold.prevValue / silver.prevValue : null
+  // Gold/Silver ratio: GC=F / SI=F
+  const gsV = gcf.value !== null && sif.value !== null && sif.value > 0
+    ? gcf.value / sif.value : null
+  const gsP = gcf.prev !== null && sif.prev !== null && sif.prev > 0
+    ? gcf.prev / sif.prev : null
 
-  // Copper/Silver (copper lb = PCOPPUSDM / 2204.62 USD/lb)
-  const cuLb     = copper.lastValue !== null ? copper.lastValue / 2204.62 : null
-  const cuLbPrev = copper.prevValue !== null ? copper.prevValue / 2204.62 : null
-  const cuAgLast = cuLb     !== null && silver.lastValue !== null && silver.lastValue > 0
-    ? cuLb     / silver.lastValue : null
-  const cuAgPrev = cuLbPrev !== null && silver.prevValue !== null && silver.prevValue > 0
-    ? cuLbPrev / silver.prevValue : null
+  // Copper/Silver ratio: HG=F (USD/lb) / SI=F (USD/oz)
+  const cuAgV = hgf.value !== null && sif.value !== null && sif.value > 0
+    ? hgf.value / sif.value : null
+  const cuAgP = hgf.prev !== null && sif.prev !== null && sif.prev > 0
+    ? hgf.prev / sif.prev : null
 
   if (!fredApiKey) {
     return (
@@ -121,21 +128,21 @@ export function OverviewSection() {
 
   return (
     <div className="section-enter flex flex-col gap-3">
-      <p className="text-[11px] text-text-muted leading-relaxed">
-        Macro risk gauges — colored arc: <span className="text-green-500">green = safe</span>,{' '}
-        <span className="text-yellow-500">yellow = caution</span>,{' '}
-        <span className="text-red-500">red = stress</span>.
-        MOVE &amp; DXY via Yahoo Finance (ICE). All others via FRED API.
-        Daily change shown in parentheses.
+      <p className="text-[10.5px] text-text-muted leading-relaxed">
+        Macro risk gauges — arc zones:{' '}
+        <span className="text-green-500 font-medium">green = safe</span>,{' '}
+        <span className="text-yellow-500 font-medium">yellow = caution</span>,{' '}
+        <span className="text-red-500 font-medium">red = stress</span>.
+        MOVE &amp; DXY via Yahoo Finance (ICE). Oil futures via Yahoo. Commodity ratios via COMEX futures. FRED for SOFR/yields/gold spot.
       </p>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
 
-        {/* ─── 1. MOVE ──────────────────────────────────────────────────── */}
+        {/* 1 ── MOVE (ICE, via Yahoo) ───────────────────────────────────── */}
         <GaugeCard
           title="Bond Volatility — MOVE"
           subtitle="ICE BofA MOVE Index. >100=elevated; >150=crisis"
-          source="Yahoo: ^MOVE"
+          source="Yahoo ^MOVE"
           delta={move.value !== null && move.prev !== null ? move.value - move.prev : null}
           deltaColor={zoneColor(move.value, 70, 140)}
           formatDelta={(d) => `${d >= 0 ? '+' : ''}${d.toFixed(1)}`}
@@ -149,11 +156,11 @@ export function OverviewSection() {
           />
         </GaugeCard>
 
-        {/* ─── 2. VIX ───────────────────────────────────────────────────── */}
+        {/* 2 ── VIX ────────────────────────────────────────────────────── */}
         <GaugeCard
           title="Equity Volatility — VIX"
-          subtitle="CBOE Volatility Index. >28=fear; >40=panic"
-          source="FRED: VIXCLS"
+          subtitle="CBOE VIX. >28=fear; >40=panic"
+          source="FRED VIXCLS"
           delta={vix.lastValue !== null && vix.prevValue !== null ? vix.lastValue - vix.prevValue : null}
           deltaColor={zoneColor(vix.lastValue, 14, 28)}
           formatDelta={(d) => `${d >= 0 ? '+' : ''}${d.toFixed(2)}`}
@@ -167,17 +174,17 @@ export function OverviewSection() {
           />
         </GaugeCard>
 
-        {/* ─── 3. SOFR − IORB ───────────────────────────────────────────── */}
+        {/* 3 ── SOFR − IORB ─────────────────────────────────────────────── */}
         <GaugeCard
           title="US Banking Stress — SOFR−IORB"
-          subtitle="Repo stress. Negative=excess reserves; >0.10=scarce"
-          source="FRED: SOFR, IORB"
-          delta={sofrIorbLast !== null && sofrIorbPrev !== null ? sofrIorbLast - sofrIorbPrev : null}
-          deltaColor={zoneColor(sofrIorbLast, 0, 0.1)}
+          subtitle="Repo stress. Negative=excess reserves; >0.10%=scarce"
+          source="FRED SOFR, IORB"
+          delta={sofrIorbV !== null && sofrIorbP !== null ? sofrIorbV - sofrIorbP : null}
+          deltaColor={zoneColor(sofrIorbV, 0, 0.1)}
           formatDelta={(d) => `${d >= 0 ? '+' : ''}${d.toFixed(3)}%`}
         >
           <GaugeChart
-            value={sofrIorbLast}
+            value={sofrIorbV}
             min={-0.2} max={0.5} greenMax={0} redMin={0.1}
             format={(v) => `${v.toFixed(3)}%`}
             loading={sofr.loading || iorb.loading}
@@ -185,11 +192,11 @@ export function OverviewSection() {
           />
         </GaugeCard>
 
-        {/* ─── 4. US 30Y ────────────────────────────────────────────────── */}
+        {/* 4 ── US 30Y ──────────────────────────────────────────────────── */}
         <GaugeCard
           title="US Fiscal Pressure — 30Y"
           subtitle="30Y Treasury yield. >5%=fiscal dominance risk"
-          source="FRED: DGS30"
+          source="FRED DGS30"
           delta={us30y.lastValue !== null && us30y.prevValue !== null ? us30y.lastValue - us30y.prevValue : null}
           deltaColor={zoneColor(us30y.lastValue, 2.5, 5)}
           formatDelta={(d) => `${d >= 0 ? '+' : ''}${(d * 100).toFixed(1)} bps`}
@@ -203,11 +210,11 @@ export function OverviewSection() {
           />
         </GaugeCard>
 
-        {/* ─── 5. US 10Y ────────────────────────────────────────────────── */}
+        {/* 5 ── US 10Y ──────────────────────────────────────────────────── */}
         <GaugeCard
           title="US Fiscal Pressure — 10Y"
-          subtitle="10Y Treasury yield. >4.5%=refinancing pressure"
-          source="FRED: DGS10"
+          subtitle="10Y Treasury yield. >4.5%=refinancing cliff"
+          source="FRED DGS10"
           delta={us10y.lastValue !== null && us10y.prevValue !== null ? us10y.lastValue - us10y.prevValue : null}
           deltaColor={zoneColor(us10y.lastValue, 2, 4.5)}
           formatDelta={(d) => `${d >= 0 ? '+' : ''}${(d * 100).toFixed(1)} bps`}
@@ -221,11 +228,11 @@ export function OverviewSection() {
           />
         </GaugeCard>
 
-        {/* ─── 6. USD/JPY ───────────────────────────────────────────────── */}
+        {/* 6 ── USD/JPY ─────────────────────────────────────────────────── */}
         <GaugeCard
           title="JPY Hyperinflation — USD/JPY"
-          subtitle="Yen per USD. >160=BoJ stress / carry trade unwind risk"
-          source="FRED: DEXJPUS"
+          subtitle="Yen per USD. >160=BoJ carry trade stress"
+          source="FRED DEXJPUS"
           delta={usdjpy.lastValue !== null && usdjpy.prevValue !== null ? usdjpy.lastValue - usdjpy.prevValue : null}
           deltaColor={zoneColor(usdjpy.lastValue, 100, 160)}
           formatDelta={(d) => `${d >= 0 ? '+' : ''}${d.toFixed(2)}`}
@@ -239,29 +246,29 @@ export function OverviewSection() {
           />
         </GaugeCard>
 
-        {/* ─── 7. DXY (ICE) ─────────────────────────────────────────────── */}
+        {/* 7 ── DXY (ICE) — updated limits 90/110 ──────────────────────── */}
         <GaugeCard
           title="USD Strength — DXY (ICE)"
-          subtitle="ICE US Dollar Index. <80=weak; >100=strong dollar pressure"
-          source="Yahoo: DX-Y.NYB"
+          subtitle="ICE Dollar Index. <90=weak dollar; >110=strong dollar pressure on EM debt"
+          source="Yahoo DX-Y.NYB"
           delta={dxy.value !== null && dxy.prev !== null ? dxy.value - dxy.prev : null}
-          deltaColor={zoneColor(dxy.value, 80, 100)}
+          deltaColor={zoneColor(dxy.value, 90, 110)}
           formatDelta={(d) => `${d >= 0 ? '+' : ''}${d.toFixed(2)}`}
         >
           <GaugeChart
             value={dxy.value}
-            min={70} max={120} greenMax={80} redMin={100}
+            min={75} max={125} greenMax={90} redMin={110}
             format={(v) => v.toFixed(1)}
             loading={dxy.loading}
             greenLabel="Weak $" yellowLabel="Normal" redLabel="Strong $"
           />
         </GaugeCard>
 
-        {/* ─── 8. Gold USD ──────────────────────────────────────────────── */}
+        {/* 8 ── Gold USD/oz ─────────────────────────────────────────────── */}
         <GaugeCard
-          title="Gold Renaissance — Gold (USD)"
-          subtitle="LBMA Gold spot USD/oz. Rising=monetary remonetization"
-          source="FRED: GOLDAMGBD228NLBM"
+          title="Gold Renaissance — Gold (USD/oz)"
+          subtitle="LBMA spot. Green<$4k = fair value; Red>$5.5k = overshoot"
+          source="FRED GOLDAMGBD228NLBM"
           delta={gold.lastValue !== null && gold.prevValue !== null ? gold.lastValue - gold.prevValue : null}
           deltaColor={zoneColor(gold.lastValue, 4000, 5500)}
           formatDelta={(d) => `${d >= 0 ? '+' : ''}$${Math.abs(d).toFixed(0)}`}
@@ -275,17 +282,17 @@ export function OverviewSection() {
           />
         </GaugeCard>
 
-        {/* ─── 9. Gold/CNY ──────────────────────────────────────────────── */}
+        {/* 9 ── Gold/CNY ────────────────────────────────────────────────── */}
         <GaugeCard
           title="Gold/CNY — Yuan per Oz"
-          subtitle="Gold priced in Chinese Yuan. Petrogold transition proxy"
-          source="FRED: GOLD × DEXCHUS"
-          delta={goldCnyLast !== null && goldCnyPrev !== null ? goldCnyLast - goldCnyPrev : null}
-          deltaColor={zoneColor(goldCnyLast, 30000, 35000)}
+          subtitle="Gold priced in Chinese Yuan. Petrogold / de-dollarization proxy"
+          source="FRED GOLD × DEXCHUS"
+          delta={goldCnyV !== null && goldCnyP !== null ? goldCnyV - goldCnyP : null}
+          deltaColor={zoneColor(goldCnyV, 30000, 35000)}
           formatDelta={(d) => `${d >= 0 ? '+' : ''}¥${Math.abs(d / 1000).toFixed(1)}k`}
         >
           <GaugeChart
-            value={goldCnyLast}
+            value={goldCnyV}
             min={10000} max={50000} greenMax={30000} redMin={35000}
             format={(v) => `¥${(v / 1000).toFixed(0)}k`}
             loading={gold.loading || cny.loading}
@@ -293,107 +300,127 @@ export function OverviewSection() {
           />
         </GaugeCard>
 
-        {/* ─── 10. Oil — Spot (WTI + Brent, two needles) ───────────────── */}
+        {/* 10 ── Oil Spot (WTI + Brent, FRED same-day) ──────────────────── */}
         <GaugeCard
-          title="Energy — Oil Spot Prices"
-          subtitle="WTI (Cushing) & Brent spot, USD/bbl — same-day equivalents"
-          source="FRED: DCOILWTICO, DCOILBRENTEU"
-          delta={wti.lastValue !== null && wti.prevValue !== null ? wti.lastValue - wti.prevValue : null}
-          deltaColor={zoneColor(wti.lastValue, 60, 120)}
+          title="Energy — Oil Spot (WTI + Brent)"
+          subtitle="WTI Cushing & Brent Dated spot, USD/bbl — same-day equivalents. Brent = Middle East export reference price."
+          source="FRED DCOILWTICO + DCOILBRENTEU"
+          delta={wtiF.lastValue !== null && wtiF.prevValue !== null ? wtiF.lastValue - wtiF.prevValue : null}
+          deltaColor={zoneColor(wtiF.lastValue, 60, 120)}
           formatDelta={(d) => `WTI ${d >= 0 ? '+' : ''}$${Math.abs(d).toFixed(2)}`}
         >
           <GaugeChart
             needles={[
-              { value: wti.lastValue,   color: '#3b82f6', label: 'WTI' },
-              { value: brent.lastValue, color: '#f59e0b', label: 'Brent' },
+              { value: wtiF.lastValue,   color: '#3b82f6', label: 'WTI' },
+              { value: brentF.lastValue, color: '#f59e0b', label: 'Brent' },
             ]}
             min={0} max={200} greenMax={60} redMin={120}
             format={(v) => `$${v.toFixed(0)}`}
-            loading={wti.loading || brent.loading}
+            loading={wtiF.loading || brentF.loading}
             greenLabel="Cheap" yellowLabel="Normal" redLabel="Expensive"
           />
         </GaugeCard>
 
-        {/* ─── 11. Oil — Front Month (WTI CL=F + Brent BZ=F) ──────────── */}
+        {/* 11 ── Oil Futures (WTI + Brent + Murban, Yahoo) ─────────────── */}
         <GaugeCard
           title="Energy — Oil Futures (Front Month)"
-          subtitle="WTI CL=F & Brent BZ=F front-month — equivalent delivery horizon"
-          source="Yahoo: CL=F, BZ=F"
+          subtitle="WTI CL=F + Brent BZ=F + Murban MCO=F — same delivery horizon. Murban = ICE Abu Dhabi/Asian Gulf benchmark."
+          source="Yahoo CL=F, BZ=F, MCO=F"
           delta={clf.value !== null && clf.prev !== null ? clf.value - clf.prev : null}
           deltaColor={zoneColor(clf.value, 60, 120)}
           formatDelta={(d) => `WTI ${d >= 0 ? '+' : ''}$${Math.abs(d).toFixed(2)}`}
         >
           <GaugeChart
             needles={[
-              { value: clf.value, color: '#3b82f6', label: 'WTI F1' },
-              { value: bzf.value, color: '#f59e0b', label: 'Brent F1' },
+              { value: clf.value,  color: '#3b82f6', label: 'WTI' },
+              { value: bzf.value,  color: '#f59e0b', label: 'Brent' },
+              { value: mcof.value, color: '#8b5cf6', label: 'Murban' },
             ]}
             min={0} max={200} greenMax={60} redMin={120}
             format={(v) => `$${v.toFixed(0)}`}
-            loading={clf.loading || bzf.loading}
+            loading={clf.loading || bzf.loading || mcof.loading}
             greenLabel="Cheap" yellowLabel="Normal" redLabel="Expensive"
           />
         </GaugeCard>
 
-        {/* ─── 12. Gold/Oil (Howell) ────────────────────────────────────── */}
+        {/* 12 ── Strait of Hormuz — INVERTED gauge (high count = good) ─── */}
         <GaugeCard
-          title="Gold/Oil Ratio (Howell)"
-          subtitle="Barrels of WTI per oz gold. Howell: rising=excess dollar liquidity; signals gold outperforming real economy"
-          source="FRED: GOLD ÷ WTI"
-          delta={goldOilLast !== null && goldOilPrev !== null ? goldOilLast - goldOilPrev : null}
-          deltaColor={zoneColor(goldOilLast, 20, 40)}
-          formatDelta={(d) => `${d >= 0 ? '+' : ''}${d.toFixed(2)}`}
+          title="Strait of Hormuz — Tanker Flow"
+          subtitle="Oil tanker transits/day (~21M bbl/day = ~20% global oil). Real-time count requires Kpler or VortexA subscription."
+          source="No free API"
+          delta={null}
+          deltaColor="#64748b"
+          formatDelta={() => ''}
         >
           <GaugeChart
-            value={goldOilLast}
-            min={5} max={65} greenMax={20} redMin={40}
-            format={(v) => v.toFixed(1)}
-            loading={gold.loading || wti.loading}
+            value={null}
+            min={0} max={25} greenMax={18} redMin={8}
+            inverted
+            format={(v) => `${v.toFixed(0)}/day`}
+            loading={false}
+            greenLabel="Normal" yellowLabel="Reduced" redLabel="Crisis"
+          />
+        </GaugeCard>
+
+        {/* 13 ── Gold/Oil ratio (Howell) — Yahoo front-month futures ──────── */}
+        <GaugeCard
+          title="Gold/Oil Ratio (Howell)"
+          subtitle="Barrels of WTI per oz of gold. Howell: rising = monetary liquidity > real economy. GC=F ÷ CL=F."
+          source="Yahoo GC=F ÷ CL=F"
+          delta={goldOilV !== null && goldOilP !== null ? goldOilV - goldOilP : null}
+          deltaColor={zoneColor(goldOilV, 20, 40)}
+          formatDelta={(d) => `${d >= 0 ? '+' : ''}${d.toFixed(2)}×`}
+        >
+          <GaugeChart
+            value={goldOilV}
+            min={5} max={60} greenMax={20} redMin={40}
+            format={(v) => `${v.toFixed(1)}×`}
+            loading={gcf.loading || clf.loading}
             greenLabel="Normal" yellowLabel="Elevated" redLabel="Extreme"
           />
         </GaugeCard>
 
-        {/* ─── 13. Gold/Silver ──────────────────────────────────────────── */}
+        {/* 14 ── Gold/Silver ratio — Yahoo ────────────────────────────────── */}
         <GaugeCard
           title="Gold/Silver Ratio"
-          subtitle="Oz of gold per oz of silver. <25=silver bull; >120=extreme silver undervaluation"
-          source="FRED: GOLD ÷ SLVPRUSD"
-          delta={goldSilverLast !== null && goldSilverPrev !== null ? goldSilverLast - goldSilverPrev : null}
-          deltaColor={zoneColor(goldSilverLast, 25, 120)}
+          subtitle="Oz of gold per oz of silver. <25=silver bull; >120=extreme silver undervaluation. GC=F ÷ SI=F."
+          source="Yahoo GC=F ÷ SI=F"
+          delta={gsV !== null && gsP !== null ? gsV - gsP : null}
+          deltaColor={zoneColor(gsV, 25, 120)}
           formatDelta={(d) => `${d >= 0 ? '+' : ''}${d.toFixed(2)}`}
         >
           <GaugeChart
-            value={goldSilverLast}
+            value={gsV}
             min={0} max={150} greenMax={25} redMin={120}
             format={(v) => v.toFixed(1)}
-            loading={gold.loading || silver.loading}
+            loading={gcf.loading || sif.loading}
             greenLabel="Silver Bull" yellowLabel="Normal" redLabel="Extreme"
           />
         </GaugeCard>
 
-        {/* ─── 14. Copper/Silver ────────────────────────────────────────── */}
+        {/* 15 ── Copper/Silver ratio — Yahoo ──────────────────────────────── */}
         <GaugeCard
           title="Copper/Silver Ratio (Cu/Ag)"
-          subtitle="(Cu USD/lb) ÷ (Ag USD/oz). Ratio < 0.10 = silver expensive vs copper"
-          source="FRED: PCOPPUSDM ÷ SLVPRUSD"
-          delta={cuAgLast !== null && cuAgPrev !== null ? cuAgLast - cuAgPrev : null}
-          deltaColor={zoneColor(cuAgLast, 0.1, 0.3)}
+          subtitle="(HG=F USD/lb) ÷ (SI=F USD/oz). Rising = industrial demand vs monetary silver. Ratio < 0.10 = silver expensive."
+          source="Yahoo HG=F ÷ SI=F"
+          delta={cuAgV !== null && cuAgP !== null ? cuAgV - cuAgP : null}
+          deltaColor={zoneColor(cuAgV, 0.1, 0.3)}
           formatDelta={(d) => `${d >= 0 ? '+' : ''}${d.toFixed(4)}`}
         >
           <GaugeChart
-            value={cuAgLast}
+            value={cuAgV}
             min={0} max={0.4} greenMax={0.1} redMin={0.3}
             format={(v) => v.toFixed(3)}
-            loading={copper.loading || silver.loading}
+            loading={hgf.loading || sif.loading}
             greenLabel="Low" yellowLabel="Normal" redLabel="High"
           />
         </GaugeCard>
 
-        {/* ─── 15. Bitcoin ──────────────────────────────────────────────── */}
+        {/* 16 ── Bitcoin ───────────────────────────────────────────────────── */}
         <GaugeCard
           title="Bitcoin Bear Market Thermometer"
-          subtitle="BTC/USD. <$65k=bull; >$95k=blow-off top risk"
-          source="FRED: CBBTCUSD"
+          subtitle="BTC/USD. <$65k = accumulation zone; >$95k = blow-off top risk"
+          source="FRED CBBTCUSD"
           delta={btc.lastValue !== null && btc.prevValue !== null ? btc.lastValue - btc.prevValue : null}
           deltaColor={zoneColor(btc.lastValue, 65000, 95000)}
           formatDelta={(d) => `${d >= 0 ? '+' : ''}$${Math.abs(d / 1000).toFixed(1)}k`}
@@ -403,20 +430,31 @@ export function OverviewSection() {
             min={0} max={200000} greenMax={65000} redMin={95000}
             format={(v) => `$${(v / 1000).toFixed(0)}k`}
             loading={btc.loading}
-            greenLabel="Bull" yellowLabel="Frothy" redLabel="Blow-off"
+            greenLabel="Accumulate" yellowLabel="Frothy" redLabel="Blow-off"
           />
         </GaugeCard>
 
       </div>
 
-      {/* Howell Gold/Oil note */}
-      <div className="bg-bg-card border border-bg-border rounded-xl px-4 py-3 text-[11px] text-text-muted leading-relaxed">
-        <span className="text-text-secondary font-medium">Howell Gold/Oil framework: </span>
-        Michael Howell (CrossBorder Capital) uses the Gold/Oil ratio as a liquidity indicator.
-        Rising ratio (gold outperforming WTI) = financial liquidity accumulating in stores of value faster
-        than real economic activity — signals expansionary monetary conditions or declining physical demand.
-        He tracks this alongside his Global Liquidity Index (Fed + ECB + PBoC + BoJ balance sheets minus sterilization).
-        A ratio above ~30× historically coincides with late-cycle excess liquidity or disinflationary impulse.
+      {/* ── Contextual notes ─────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="bg-bg-card border border-bg-border rounded-xl px-4 py-3 text-[10.5px] text-text-muted leading-relaxed">
+          <span className="text-text-secondary font-semibold">Howell Gold/Oil ratio: </span>
+          Michael Howell (CrossBorder Capital) uses Gold/WTI as a liquidity barometer.
+          Rising ratio = monetary liquidity is accumulating in stores of value (gold) faster than
+          real economic demand (oil). Historically ratio above ~30× coincides with late-cycle
+          monetary excess or disinflationary impulse. He tracks this alongside his Global Liquidity
+          Index (sum of major CB balance sheets minus sterilization flows).
+        </div>
+        <div className="bg-bg-card border border-bg-border rounded-xl px-4 py-3 text-[10.5px] text-text-muted leading-relaxed">
+          <span className="text-text-secondary font-semibold">Strait of Hormuz data: </span>
+          ~21M barrels/day (≈20% global oil supply) transits the strait daily.
+          Normal oil tanker flow: ~18–22 tankers/day. Sustained drops to ~8–10 indicate
+          geopolitical disruption. Real-time vessel count requires commercial maritime data:
+          <span className="text-text-secondary"> Kpler, Vortexa, MarineTraffic Enterprise, or Lloyd's List Intelligence.</span>
+          Murban crude (ICE) is the proxy for Persian Gulf pricing pressure — its premium/discount
+          to WTI/Brent reflects Hormuz disruption risk directly.
+        </div>
       </div>
     </div>
   )
