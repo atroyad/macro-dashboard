@@ -1,6 +1,7 @@
 import { useApp } from '../context/AppContext'
 import { useFRED } from '../hooks/useFRED'
 import { useYahoo } from '../hooks/useYahoo'
+import { useDeribitDVOL } from '../hooks/useDeribitDVOL'
 import { GaugeChart, deltaColor as getDeltaColor } from '../components/charts/GaugeChart'
 
 // ─── GaugeCard ───────────────────────────────────────────────────────────────
@@ -55,12 +56,15 @@ export function OverviewSection() {
   const iorb   = useFRED('IORB',    fredApiKey, { frequency: 'd', observationStart: S })
   const us30y  = useFRED('DGS30',   fredApiKey, { frequency: 'd', observationStart: S })
   const us10y  = useFRED('DGS10',   fredApiKey, { frequency: 'd', observationStart: S })
+  const effr   = useFRED('DFF',     fredApiKey, { frequency: 'd', observationStart: S })
   const usdjpy = useFRED('DEXJPUS', fredApiKey, { frequency: 'd', observationStart: S })
   // WTI + Brent SPOT via FRED (daily, same-day equivalents)
   const wtiS   = useFRED('DCOILWTICO',   fredApiKey, { frequency: 'd', observationStart: S })
   const brentS = useFRED('DCOILBRENTEU', fredApiKey, { frequency: 'd', observationStart: S })
   // Bitcoin via FRED (CoinBase daily)
   const btc    = useFRED('CBBTCUSD', fredApiKey, { frequency: 'd', observationStart: S })
+  // Loans & Leases YoY — weekly, percent change from year ago
+  const loans  = useFRED('LOANS', fredApiKey, { units: 'pc1', observationStart: '2024-01-01' })
 
   // ── Yahoo Finance ─────────────────────────────────────────────────────────
   const move = useYahoo('^MOVE')      // ICE BofA MOVE Index
@@ -74,8 +78,9 @@ export function OverviewSection() {
   // Oil front-month futures
   const clf  = useYahoo('CL=F')      // NYMEX WTI front-month
   const bzf  = useYahoo('BZ=F')      // ICE Brent front-month
-  // Bitcoin Volatility Index
-  const bviv = useYahoo('BVOL')      // BTC 30-day implied vol index
+
+  // ── Deribit ───────────────────────────────────────────────────────────────
+  const bviv = useDeribitDVOL()       // BTC DVOL (30-day implied vol, equivalent to BVIV)
 
   // ── Derived ───────────────────────────────────────────────────────────────
 
@@ -84,6 +89,12 @@ export function OverviewSection() {
     ? sofr.lastValue - iorb.lastValue : null
   const sofrIorbP = sofr.prevValue !== null && iorb.prevValue !== null
     ? sofr.prevValue - iorb.prevValue : null
+
+  // US10Y − EFFR (basis points expressed as % points: 100 bps = 1.0)
+  const spreadV = us10y.lastValue !== null && effr.lastValue !== null
+    ? us10y.lastValue - effr.lastValue : null
+  const spreadP = us10y.prevValue !== null && effr.prevValue !== null
+    ? us10y.prevValue - effr.prevValue : null
 
   // Gold in CNY: GC=F (USD/oz) × CNY=X (CNY per USD)
   const goldCnyV = gcf.value !== null && cnyx.value !== null
@@ -245,7 +256,29 @@ export function OverviewSection() {
           )
         })()}
 
-        {/* 6 ── USD/JPY ─────────────────────────────────────────────────────── */}
+        {/* 6 ── US10Y − EFFR Spread ─────────────────────────────────────────── */}
+        {(() => {
+          const delta = spreadV !== null && spreadP !== null ? spreadV - spreadP : null
+          return (
+            <GaugeCard
+              title="Risk Sentiment — 10Y minus EFFR"
+              subtitle="Spread between 10Y yield & fed funds rate. <0=risk-off; >100bps=risk-on"
+              source="FRED DGS10, DFF"
+              delta={delta}
+              deltaColor={getDeltaColor(delta, true)}
+              formatDelta={(d) => `${Math.abs(d * 100).toFixed(0)} bps`}
+            >
+              <GaugeChart
+                value={spreadV} min={-2} max={4} greenMax={0} redMin={1}
+                format={(v) => `${(v * 100).toFixed(0)} bps`}
+                loading={us10y.loading || effr.loading}
+                greenLabel="Risk Off" yellowLabel="Normal" redLabel="Risk On"
+              />
+            </GaugeCard>
+          )
+        })()}
+
+        {/* 7 ── USD/JPY ─────────────────────────────────────────────────────── */}
         {(() => {
           const delta = usdjpy.lastValue !== null && usdjpy.prevValue !== null ? usdjpy.lastValue - usdjpy.prevValue : null
           return (
@@ -266,7 +299,7 @@ export function OverviewSection() {
           )
         })()}
 
-        {/* 7 ── DXY (ICE, Yahoo) ────────────────────────────────────────────── */}
+        {/* 8 ── DXY (ICE, Yahoo) ────────────────────────────────────────────── */}
         {(() => {
           const delta = dxy.value !== null && dxy.prev !== null ? dxy.value - dxy.prev : null
           return (
@@ -287,7 +320,28 @@ export function OverviewSection() {
           )
         })()}
 
-        {/* 8 ── Gold USD/oz ─────────────────────────────────────────────────── */}
+        {/* 9 ── Loans & Leases YoY ─────────────────────────────────────────── */}
+        {(() => {
+          const delta = loans.lastValue !== null && loans.prevValue !== null ? loans.lastValue - loans.prevValue : null
+          return (
+            <GaugeCard
+              title="Credit Pulse — Loans & Leases YoY"
+              subtitle="All commercial bank loans, YoY % change. <4%=contraction; >8%=expansion"
+              source="FRED LOANS pc1"
+              delta={delta}
+              deltaColor={getDeltaColor(delta, true)}
+              formatDelta={(d) => `${Math.abs(d).toFixed(2)}%`}
+            >
+              <GaugeChart
+                value={loans.lastValue} min={-5} max={20} greenMax={4} redMin={8}
+                format={(v) => `${v.toFixed(1)}%`} loading={loans.loading}
+                greenLabel="Contraction" yellowLabel="Normal" redLabel="Expansion"
+              />
+            </GaugeCard>
+          )
+        })()}
+
+        {/* 10 ── Gold USD/oz ────────────────────────────────────────────────── */}
         {(() => {
           const delta = gcf.value !== null && gcf.prev !== null ? gcf.value - gcf.prev : null
           return (
@@ -308,7 +362,7 @@ export function OverviewSection() {
           )
         })()}
 
-        {/* 9 ── Gold/CNY ────────────────────────────────────────────────────── */}
+        {/* 11 ── Gold/CNY ───────────────────────────────────────────────────── */}
         {(() => {
           const delta = goldCnyV !== null && goldCnyP !== null ? goldCnyV - goldCnyP : null
           return (
@@ -329,7 +383,7 @@ export function OverviewSection() {
           )
         })()}
 
-        {/* 10 ── Oil Spot — WTI + Brent ─────────────────────────────────────── */}
+        {/* 12 ── Oil Spot — WTI + Brent ────────────────────────────────────── */}
         {(() => {
           const delta = wtiS.lastValue !== null && wtiS.prevValue !== null ? wtiS.lastValue - wtiS.prevValue : null
           return (
@@ -355,7 +409,7 @@ export function OverviewSection() {
           )
         })()}
 
-        {/* 11 ── Oil Futures — WTI + Brent ──────────────────────────────────── */}
+        {/* 13 ── Oil Futures — WTI + Brent ─────────────────────────────────── */}
         {(() => {
           const delta = clf.value !== null && clf.prev !== null ? clf.value - clf.prev : null
           return (
@@ -381,7 +435,7 @@ export function OverviewSection() {
           )
         })()}
 
-        {/* 12 ── Gold/Oil (Howell) ──────────────────────────────────────────── */}
+        {/* 14 ── Gold/Oil (Howell) ──────────────────────────────────────────── */}
         {(() => {
           const delta = goldOilV !== null && goldOilP !== null ? goldOilV - goldOilP : null
           return (
@@ -402,7 +456,7 @@ export function OverviewSection() {
           )
         })()}
 
-        {/* 13 ── Gold/Silver ratio ──────────────────────────────────────────── */}
+        {/* 15 ── Gold/Silver ratio ──────────────────────────────────────────── */}
         {(() => {
           const delta = gsV !== null && gsP !== null ? gsV - gsP : null
           return (
@@ -423,9 +477,11 @@ export function OverviewSection() {
           )
         })()}
 
-        {/* 14 ── Copper/Silver ratio ────────────────────────────────────────── */}
+        {/* 16 ── Copper/Silver ratio ────────────────────────────────────────── */}
         {(() => {
-          const delta = cuAgV !== null && cuAgP !== null ? cuAgV - cuAgP : null
+          const cuAgV2 = cuAgV
+          const cuAgP2 = cuAgP
+          const delta = cuAgV2 !== null && cuAgP2 !== null ? cuAgV2 - cuAgP2 : null
           return (
             <GaugeCard
               title="Copper/Silver Ratio (Cu/Ag)"
@@ -436,7 +492,7 @@ export function OverviewSection() {
               formatDelta={(d) => `${Math.abs(d).toFixed(4)}`}
             >
               <GaugeChart
-                value={cuAgV} min={0} max={0.4} greenMax={0.1} redMin={0.3}
+                value={cuAgV2} min={0} max={0.4} greenMax={0.1} redMin={0.3}
                 format={(v) => v.toFixed(3)} loading={hgf.loading || sif.loading}
                 greenLabel="Rotate Silver" yellowLabel="Normal" redLabel="Rotate Copper"
               />
@@ -444,7 +500,7 @@ export function OverviewSection() {
           )
         })()}
 
-        {/* 15 ── Bitcoin ────────────────────────────────────────────────────── */}
+        {/* 17 ── Bitcoin ────────────────────────────────────────────────────── */}
         {(() => {
           const delta = btc.lastValue !== null && btc.prevValue !== null ? btc.lastValue - btc.prevValue : null
           return (
@@ -465,7 +521,9 @@ export function OverviewSection() {
           )
         })()}
 
-        {/* 16 ── Gold/Bitcoin ratio ─────────────────────────────────────────── */}
+        {/* 18 ── Gold/Bitcoin ratio ─────────────────────────────────────────── */}
+        {/* Value = BTC price ÷ Gold price = oz of gold 1 BTC can buy (~30 today)    */}
+        {/* inverted=true: arc is RED on left (low = BTC cheap), GREEN on right      */}
         {(() => {
           const delta = goldBtcV !== null && goldBtcP !== null ? goldBtcV - goldBtcP : null
           return (
@@ -478,23 +536,26 @@ export function OverviewSection() {
               formatDelta={(d) => `${Math.abs(d).toFixed(2)}oz`}
             >
               <GaugeChart
-                value={goldBtcV} min={0} max={60} greenMax={30} redMin={15}
-                inverted
-                format={(v) => `${v.toFixed(1)}oz`} loading={btc.loading || gcf.loading}
-                greenLabel="BTC Expensive" yellowLabel="Fair" redLabel="BTC Cheap"
+                value={goldBtcV}
+                min={0} max={60}
+                greenMax={30} redMin={15}
+                inverted={true}
+                format={(v) => `${v.toFixed(1)}oz`}
+                loading={btc.loading || gcf.loading}
+                greenLabel="BTC Re-pricing" yellowLabel="Balanced" redLabel="Rotate Gold"
               />
             </GaugeCard>
           )
         })()}
 
-        {/* 17 ── Bitcoin Volatility (BVIV) ─────────────────────────────────── */}
+        {/* 19 ── Bitcoin Volatility (Deribit DVOL) ─────────────────────────── */}
         {(() => {
           const delta = bviv.value !== null && bviv.prev !== null ? bviv.value - bviv.prev : null
           return (
             <GaugeCard
-              title="Bitcoin Volatility — BVIV"
-              subtitle="BTC 30-day implied volatility. <40=calm; >70=extreme fear/greed"
-              source="Yahoo BVOL"
+              title="Bitcoin Volatility — DVOL (BVIV)"
+              subtitle="Deribit BTC 30-day implied vol. <40=calm; >70=extreme fear/greed"
+              source="Deribit DVOL"
               delta={delta}
               deltaColor={getDeltaColor(delta, true)}
               formatDelta={(d) => `${Math.abs(d).toFixed(1)}`}
@@ -511,22 +572,28 @@ export function OverviewSection() {
       </div>
 
       {/* Contextual notes */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="bg-bg-card border border-bg-border rounded-xl px-4 py-3 text-[10.5px] text-text-muted leading-relaxed">
           <span className="text-text-secondary font-semibold">Howell Gold/Oil ratio: </span>
           Michael Howell (CrossBorder Capital) uses Gold ÷ WTI as a liquidity barometer.
           A rising ratio means monetary liquidity is accumulating in stores of value faster than
           real economic demand. Historically a ratio above ~30× coincides with late-cycle
-          monetary excess. He tracks this alongside his Global Liquidity Index (major CB
-          balance sheets net of sterilization flows).
+          monetary excess.
+        </div>
+        <div className="bg-bg-card border border-bg-border rounded-xl px-4 py-3 text-[10.5px] text-text-muted leading-relaxed">
+          <span className="text-text-secondary font-semibold">10Y − EFFR spread: </span>
+          When the 10Y yield exceeds the fed funds rate by {">"} 100 bps, the market is pricing in
+          risk-on growth (steep curve). An inverted or flat spread ({'<'} 0 bps) signals recession
+          expectations or risk-off flight to safety. Useful as a real-time investor sentiment gauge
+          without relying on survey data.
         </div>
         <div className="bg-bg-card border border-bg-border rounded-xl px-4 py-3 text-[10.5px] text-text-muted leading-relaxed">
           <span className="text-text-secondary font-semibold">Delta colors: </span>
-          For stress indicators (MOVE, VIX, yields, DXY, USD/JPY, oil, BVIV), a falling reading
-          is shown in <span className="text-green-500">green</span> and a rising reading in{' '}
-          <span className="text-red-500">red</span>. For wealth assets (Gold, Silver, Copper,
-          Bitcoin and their ratios), rising is <span className="text-green-500">green</span> and
-          falling is <span className="text-red-500">red</span>.
+          Stress metrics (MOVE/VIX/yields/DXY/JPY/Oil/DVOL/credit): falling{' '}
+          <span className="text-green-500">green</span>, rising{' '}
+          <span className="text-red-500">red</span>. Wealth assets (Gold/Silver/Copper/BTC
+          and ratios): rising <span className="text-green-500">green</span>, falling{' '}
+          <span className="text-red-500">red</span>.
         </div>
       </div>
     </div>
