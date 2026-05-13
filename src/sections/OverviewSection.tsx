@@ -80,8 +80,10 @@ export function OverviewSection() {
   const brentS = useFRED('DCOILBRENTEU',   fredApiKey, { frequency: 'd', observationStart: S })
   const btc    = useFRED('CBBTCUSD',       fredApiKey, { frequency: 'd', observationStart: S })
   const loans  = useFRED('LOANS',          fredApiKey, { units: 'pc1', observationStart: '2024-01-01' })
-  // GDP for Buffett Indicator (quarterly)
-  const gdp    = useFRED('GDP',            fredApiKey, { frequency: 'q', observationStart: '2020-01-01' })
+  // Buffett Indicator: total US nonfinancial corporate equity market cap (millions)
+  // NCBCEL matches Wilshire 5000 total market cap as reported by Wilshire Associates
+  const mktcap = useFRED('NCBCEL',         fredApiKey, { frequency: 'q', observationStart: '2000-01-01' })
+  const gdp    = useFRED('GDP',            fredApiKey, { frequency: 'q', observationStart: '2000-01-01' })
 
   // ── Yahoo Finance ───────────────────────────────────────────────────────────
   const move   = useYahoo('^MOVE')        // ICE BofA MOVE Index
@@ -92,7 +94,7 @@ export function OverviewSection() {
   const cnyx   = useYahoo('CNY=X')       // USD/CNY rate
   const clf    = useYahoo('CL=F')        // WTI front-month
   const bzf    = useYahoo('BZ=F')        // Brent front-month
-  const w5000  = useYahoo('^W5000')      // Wilshire 5000 Total Market Index (Buffett numerator)
+  // ^W5000 removed — index level ≠ market cap in dollars; using NCBCEL from FRED instead
 
   // Historical weekly data for ATH calculation
   const gcfH   = useYahooHistory('GC=F',     '5y')   // Gold ATH in 5-year window
@@ -115,14 +117,15 @@ export function OverviewSection() {
   const spreadP = us10y.prevValue !== null && effr.prevValue !== null
     ? us10y.prevValue - effr.prevValue : null
 
-  // Buffett Indicator: Wilshire 5000 index ÷ GDP ($B) × 100
-  // (Wilshire was calibrated so 1 index pt ≈ $1B market cap at inception)
+  // Buffett Indicator: NCBCEL (millions) ÷ GDP (billions) × 100 = %
+  // NCBCEL is in $M → divide by 1000 to get $B, then divide by GDP ($B)
+  // Matches Wilshire Associates total market cap (~$71T as of mid-2025)
   const { buffettV, buffettP } = useMemo(() => ({
-    buffettV: w5000.value !== null && gdp.lastValue !== null && gdp.lastValue > 0
-      ? (w5000.value / gdp.lastValue) * 100 : null,
-    buffettP: w5000.prev !== null && gdp.lastValue !== null && gdp.lastValue > 0
-      ? (w5000.prev / gdp.lastValue) * 100 : null,
-  }), [w5000.value, w5000.prev, gdp.lastValue])
+    buffettV: mktcap.lastValue !== null && gdp.lastValue !== null && gdp.lastValue > 0
+      ? (mktcap.lastValue / 1000 / gdp.lastValue) * 100 : null,
+    buffettP: mktcap.prevValue !== null && gdp.prevValue !== null && gdp.prevValue > 0
+      ? (mktcap.prevValue / 1000 / gdp.prevValue) * 100 : null,
+  }), [mktcap.lastValue, mktcap.prevValue, gdp.lastValue, gdp.prevValue])
 
   // Gold % from ATH
   const goldPct = gcf.value !== null && gcfH.ath !== null
@@ -286,18 +289,19 @@ export function OverviewSection() {
         })()}
 
         {/* 7 ── Buffett Indicator — falling=good, green at low */}
-        {/* Wilshire 5000 index (≈ market cap $B) ÷ GDP ($B) × 100                 */}
+        {/* NCBCEL (US nonfinancial corp equity mktcap, $M) ÷ GDP ($B) × 100       */}
+        {/* Matches Wilshire Associates total mktcap. Thresholds per historical data */}
         {(() => {
           const delta = buffettV !== null && buffettP !== null ? buffettV - buffettP : null
           return (
-            <GaugeCard title="Buffett Indicator — Market / GDP"
-              subtitle="Wilshire 5000 ÷ GDP. <100%=fair; >150%=overvalued; >200%=extreme"
-              source="Yahoo ^W5000, FRED GDP"
+            <GaugeCard title="Buffett Indicator — Market Cap / GDP"
+              subtitle="US equity mktcap ÷ GDP. Dot-com peak ~160%; 2022 peak ~220%; now ~224%"
+              source="FRED NCBCEL, GDP"
               delta={delta} deltaColor={getDeltaColor(delta, true)}
               formatDelta={(d) => `${Math.abs(d).toFixed(1)}%`}>
-              <GaugeChart value={buffettV} min={50} max={250} greenMax={100} redMin={150}
+              <GaugeChart value={buffettV} min={50} max={300} greenMax={100} redMin={175}
                 format={(v) => `${v.toFixed(0)}%`}
-                loading={w5000.loading || gdp.loading}
+                loading={mktcap.loading || gdp.loading}
                 greenLabel="Undervalued" yellowLabel="Elevated" redLabel="Overvalued" />
             </GaugeCard>
           )
@@ -545,10 +549,11 @@ export function OverviewSection() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="bg-bg-card border border-bg-border rounded-xl px-4 py-3 text-[10.5px] text-text-muted leading-relaxed">
           <span className="text-text-secondary font-semibold">Buffett Indicator: </span>
-          Warren Buffett's preferred valuation gauge: Wilshire 5000 Total Market Index
-          (≈ total US equity market cap in billions) ÷ nominal GDP ($B) × 100. Below 100% =
-          fair/undervalued. Above 150% = significantly overvalued. 2000 dot-com peak ~190%;
-          2021–2022 peak ~210–220%. Computed via Yahoo Finance ^W5000 and FRED GDP.
+          US equity market cap ÷ nominal GDP × 100. Market cap sourced from FRED NCBCEL
+          (Federal Reserve Z.1 Flow of Funds — Nonfinancial Corporate Equities, market value),
+          which matches Wilshire Associates total market cap (~$71T mid-2025). Dot-com peak
+          ~160%; 2021-2022 peak ~220%; currently ~224% — all-time high territory driven by
+          AI/tech concentration. Green &lt; 100% (fair value); Red &gt; 175% (significantly overvalued).
         </div>
         <div className="bg-bg-card border border-bg-border rounded-xl px-4 py-3 text-[10.5px] text-text-muted leading-relaxed">
           <span className="text-text-secondary font-semibold">Gold/Silver vs Cu/Ag ratios: </span>
