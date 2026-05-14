@@ -73,51 +73,65 @@ export function OverviewSection() {
   const { fredApiKey } = useApp()
   const S = '2025-01-01'
 
-  // ── FRED ─────────────────────────────────────────────────────────────────
-  const vix     = useFRED('VIXCLS',       fredApiKey, { frequency: 'd', observationStart: S })
-  const sofr    = useFRED('SOFR',         fredApiKey, { frequency: 'd', observationStart: S })
-  const iorb    = useFRED('IORB',         fredApiKey, { frequency: 'd', observationStart: S })
-  const us30y   = useFRED('DGS30',        fredApiKey, { frequency: 'd', observationStart: S })
-  const us10y   = useFRED('DGS10',        fredApiKey, { frequency: 'd', observationStart: S })
-  const effr    = useFRED('DFF',          fredApiKey, { frequency: 'd', observationStart: S })
-  const usdjpy  = useFRED('DEXJPUS',      fredApiKey, { frequency: 'd', observationStart: S })
-  const wtiS    = useFRED('DCOILWTICO',   fredApiKey, { frequency: 'd', observationStart: S })
-  const brentS  = useFRED('DCOILBRENTEU', fredApiKey, { frequency: 'd', observationStart: S })
-  const btc     = useFRED('CBBTCUSD',     fredApiKey, { frequency: 'd', observationStart: S })
-  const loans   = useFRED('LOANS',        fredApiKey, { units: 'pc1', observationStart: '2024-01-01' })
-  const m2      = useFRED('M2SL',         fredApiKey, { units: 'pc1', observationStart: '2024-01-01' })
-  const baa     = useFRED('DBAA',         fredApiKey, { frequency: 'd', observationStart: S })
-  const t5yie   = useFRED('T5YIE',        fredApiKey, { frequency: 'd', observationStart: S })
-  const t10yie  = useFRED('T10YIE',       fredApiKey, { frequency: 'd', observationStart: S })
-  const t30yie  = useFRED('T30YIEM',      fredApiKey, { frequency: 'm', observationStart: '2024-01-01' })
-  // Buffett / Gromen: quarterly
-  const mktcap  = useFRED('NCBCEL',       fredApiKey, { frequency: 'q', observationStart: '2000-01-01' })
-  const fedDebt = useFRED('GFDEBTN',      fredApiKey, { frequency: 'q', observationStart: '2000-01-01' })
-  const gdp     = useFRED('GDP',          fredApiKey, { frequency: 'q', observationStart: '2000-01-01' })
-  const debtGdp = useFRED('GFDEGDQ188S',  fredApiKey, { frequency: 'q', observationStart: '2000-01-01' })
+  // ── FRED — daily/monthly ──────────────────────────────────────────────────
+  const vix     = useFRED('VIXCLS',           fredApiKey, { frequency: 'd', observationStart: S })
+  const sofr    = useFRED('SOFR',             fredApiKey, { frequency: 'd', observationStart: S })
+  const iorb    = useFRED('IORB',             fredApiKey, { frequency: 'd', observationStart: S })
+  const us30y   = useFRED('DGS30',            fredApiKey, { frequency: 'd', observationStart: S })
+  const us10y   = useFRED('DGS10',            fredApiKey, { frequency: 'd', observationStart: S })
+  const effr    = useFRED('DFF',              fredApiKey, { frequency: 'd', observationStart: S })
+  const usdjpy  = useFRED('DEXJPUS',          fredApiKey, { frequency: 'd', observationStart: S })
+  const wtiS    = useFRED('DCOILWTICO',       fredApiKey, { frequency: 'd', observationStart: S })
+  const brentS  = useFRED('DCOILBRENTEU',     fredApiKey, { frequency: 'd', observationStart: S })
+  const btc     = useFRED('CBBTCUSD',         fredApiKey, { frequency: 'd', observationStart: S })
+  const t5yie   = useFRED('T5YIE',            fredApiKey, { frequency: 'd', observationStart: S })
+  const t10yie  = useFRED('T10YIE',           fredApiKey, { frequency: 'd', observationStart: S })
+  const baa     = useFRED('DBAA',             fredApiKey, { frequency: 'd', observationStart: S })
+  // Bank reserves (weekly, $M)
+  const reserves= useFRED('WRBWFRBL',         fredApiKey, { frequency: 'w', observationStart: S })
+
+  // ── FRED — monthly ────────────────────────────────────────────────────────
+  const cpi     = useFRED('CPIAUCSL',         fredApiKey, { units: 'pc1', observationStart: '2024-01-01' })
+  const coreCpi = useFRED('CPILFESL',         fredApiKey, { units: 'pc1', observationStart: '2024-01-01' })
+  const unrate  = useFRED('UNRATE',           fredApiKey, { frequency: 'm', observationStart: '2024-01-01' })
+  const cfnai   = useFRED('CFNAI',            fredApiKey, { frequency: 'm', observationStart: '2024-01-01' })
+  const loans   = useFRED('LOANS',            fredApiKey, { units: 'pc1', observationStart: '2024-01-01' })
+  const m2      = useFRED('M2SL',             fredApiKey, { units: 'pc1', observationStart: '2024-01-01' })
+
+  // ── FRED — quarterly ──────────────────────────────────────────────────────
+  const mktcap  = useFRED('NCBCEL',           fredApiKey, { frequency: 'q', observationStart: '2000-01-01' })
+  const fedDebt = useFRED('GFDEBTN',          fredApiKey, { frequency: 'q', observationStart: '2000-01-01' })
+  const gdp     = useFRED('GDP',              fredApiKey, { frequency: 'q', observationStart: '2000-01-01' })
+  const debtGdp = useFRED('GFDEGDQ188S',      fredApiKey, { frequency: 'q', observationStart: '2000-01-01' })
+  const intExp  = useFRED('A091RC1Q027SBEA',  fredApiKey, { frequency: 'q', observationStart: '2020-01-01' })
+  const taxRec  = useFRED('W006RC1Q027SBEA',  fredApiKey, { frequency: 'q', observationStart: '2020-01-01' })
+
+  // ── FRED — annual ─────────────────────────────────────────────────────────
+  // Deficit as % of GDP (negative = deficit). Negate to show magnitude.
+  const deficitGdp = useFRED('FYFSGDA188S',   fredApiKey, { frequency: 'a', observationStart: '2000-01-01' })
 
   // ── Yahoo Finance ─────────────────────────────────────────────────────────
-  const move  = useYahoo('^MOVE')
-  const dxy   = useYahoo('DX-Y.NYB')
-  const gcf   = useYahoo('GC=F')
-  const sif   = useYahoo('SI=F')
-  const hgf   = useYahoo('HG=F')
-  const cnyx  = useYahoo('CNY=X')
-  const clf   = useYahoo('CL=F')
-  const bzf   = useYahoo('BZ=F')
-  const spx   = useYahoo('^GSPC')
-  const ndx   = useYahoo('^NDX')
-  const rut   = useYahoo('^RUT')
+  const move    = useYahoo('^MOVE')
+  const dxy     = useYahoo('DX-Y.NYB')
+  const gcf     = useYahoo('GC=F')
+  const sif     = useYahoo('SI=F')
+  const hgf     = useYahoo('HG=F')
+  const cnyx    = useYahoo('CNY=X')
+  const clf     = useYahoo('CL=F')
+  const bzf     = useYahoo('BZ=F')
+  const spx     = useYahoo('^GSPC')
+  const ndx     = useYahoo('^NDX')
+  const rut     = useYahoo('^RUT')
 
   // ── Yahoo history (ATH) ───────────────────────────────────────────────────
-  const gcfH  = useYahooHistory('GC=F',     '5y')
-  const btcH  = useYahooHistory('BTC-USD',  '5y')
-  const spxH  = useYahooHistory('^GSPC',    '5y')
-  const ndxH  = useYahooHistory('^NDX',     '5y')
-  const rutH  = useYahooHistory('^RUT',     '5y')
+  const gcfH    = useYahooHistory('GC=F',    '5y')
+  const btcH    = useYahooHistory('BTC-USD', '5y')
+  const spxH    = useYahooHistory('^GSPC',   '5y')
+  const ndxH    = useYahooHistory('^NDX',    '5y')
+  const rutH    = useYahooHistory('^RUT',    '5y')
 
   // ── Deribit ───────────────────────────────────────────────────────────────
-  const bviv  = useDeribitDVOL()
+  const bviv    = useDeribitDVOL()
 
   // ── Derived ───────────────────────────────────────────────────────────────
 
@@ -127,8 +141,7 @@ export function OverviewSection() {
   const spreadV = us10y.lastValue !== null && effr.lastValue !== null ? us10y.lastValue - effr.lastValue : null
   const spreadP = us10y.prevValue !== null && effr.prevValue !== null ? us10y.prevValue - effr.prevValue : null
 
-  // Gromen Buffett: (US mktcap - US federal debt) / GDP × 100
-  // Both NCBCEL and GFDEBTN are in $M → /1000 = $B; GDP already $B
+  // Gromen Buffett: (mktcap $M − fedDebt $M) / 1000 / gdp $B × 100
   const { gromenV, gromenP } = useMemo(() => ({
     gromenV: mktcap.lastValue !== null && fedDebt.lastValue !== null && gdp.lastValue !== null
       ? ((mktcap.lastValue - fedDebt.lastValue) / 1000 / gdp.lastValue) * 100 : null,
@@ -136,7 +149,23 @@ export function OverviewSection() {
       ? ((mktcap.prevValue - fedDebt.prevValue) / 1000 / gdp.prevValue) * 100 : null,
   }), [mktcap.lastValue, mktcap.prevValue, fedDebt.lastValue, fedDebt.prevValue, gdp.lastValue, gdp.prevValue])
 
-  // BAA − EFFR spread (Moody's Baa minus fed funds = corporate credit premium)
+  // Interest expense / tax receipts % (both SAAR $B quarterly)
+  const intExpRatioV = intExp.lastValue !== null && taxRec.lastValue !== null && taxRec.lastValue > 0
+    ? (intExp.lastValue / taxRec.lastValue) * 100 : null
+  const intExpRatioP = intExp.prevValue !== null && taxRec.prevValue !== null && taxRec.prevValue > 0
+    ? (intExp.prevValue / taxRec.prevValue) * 100 : null
+
+  // Deficit as positive % (negate FYFSGDA188S which is negative for deficit)
+  const deficitV = deficitGdp.lastValue !== null ? -deficitGdp.lastValue : null
+  const deficitP = deficitGdp.prevValue !== null ? -deficitGdp.prevValue : null
+
+  // Bank reserves to GDP %: WRBWFRBL ($M) / 1000 / GDP ($B) × 100
+  const resGdpV = reserves.lastValue !== null && gdp.lastValue !== null
+    ? (reserves.lastValue / 1000 / gdp.lastValue) * 100 : null
+  const resGdpP = reserves.prevValue !== null && gdp.lastValue !== null
+    ? (reserves.prevValue / 1000 / gdp.lastValue) * 100 : null
+
+  // BAA − EFFR spread
   const baaffV = baa.lastValue !== null && effr.lastValue !== null ? baa.lastValue - effr.lastValue : null
   const baaffP = baa.prevValue !== null && effr.prevValue !== null ? baa.prevValue - effr.prevValue : null
 
@@ -144,7 +173,7 @@ export function OverviewSection() {
   const goldCnyV = gcf.value !== null && cnyx.value !== null ? gcf.value * cnyx.value : null
   const goldCnyP = gcf.prev  !== null && cnyx.prev  !== null ? gcf.prev  * cnyx.prev  : null
 
-  // Gold/Oil (Howell)
+  // Gold/Oil
   const goldOilV = gcf.value !== null && clf.value !== null && clf.value > 0 ? gcf.value / clf.value : null
   const goldOilP = gcf.prev  !== null && clf.prev  !== null && clf.prev  > 0 ? gcf.prev  / clf.prev  : null
 
@@ -156,29 +185,24 @@ export function OverviewSection() {
   const cuAgV = hgf.value !== null && sif.value !== null && sif.value > 0 ? hgf.value / sif.value : null
   const cuAgP = hgf.prev  !== null && sif.prev  !== null && sif.prev  > 0 ? hgf.prev  / sif.prev  : null
 
-  // Bitcoin/Gold (oz of gold 1 BTC buys)
+  // Bitcoin/Gold
   const btcGoldV = btc.lastValue !== null && gcf.value !== null && gcf.value > 0 ? btc.lastValue / gcf.value : null
   const btcGoldP = btc.prevValue !== null && gcf.prev  !== null && gcf.prev  > 0 ? btc.prevValue / gcf.prev  : null
 
-  // % from ATH (gold)
-  const goldPct     = gcf.value      !== null && gcfH.ath !== null ? (gcf.value      / gcfH.ath - 1) * 100 : null
-  const goldPrevPct = gcf.prev       !== null && gcfH.ath !== null ? (gcf.prev       / gcfH.ath - 1) * 100 : null
-
-  // % from ATH (bitcoin)
-  const btcPct      = btc.lastValue  !== null && btcH.ath !== null ? (btc.lastValue  / btcH.ath - 1) * 100 : null
-  const btcPrevPct  = btc.prevValue  !== null && btcH.ath !== null ? (btc.prevValue  / btcH.ath - 1) * 100 : null
-
-  // % from ATH (equity indices)
-  const spxPct      = spx.value !== null && spxH.ath !== null ? (spx.value / spxH.ath - 1) * 100 : null
-  const spxPrevPct  = spx.prev  !== null && spxH.ath !== null ? (spx.prev  / spxH.ath - 1) * 100 : null
-  const ndxPct      = ndx.value !== null && ndxH.ath !== null ? (ndx.value / ndxH.ath - 1) * 100 : null
-  const rutPct      = rut.value !== null && rutH.ath !== null ? (rut.value / rutH.ath - 1) * 100 : null
+  // % from ATH
+  const goldPct    = gcf.value     !== null && gcfH.ath !== null ? (gcf.value     / gcfH.ath - 1) * 100 : null
+  const goldPrevPct= gcf.prev      !== null && gcfH.ath !== null ? (gcf.prev      / gcfH.ath - 1) * 100 : null
+  const btcPct     = btc.lastValue !== null && btcH.ath !== null ? (btc.lastValue / btcH.ath - 1) * 100 : null
+  const btcPrevPct = btc.prevValue !== null && btcH.ath !== null ? (btc.prevValue / btcH.ath - 1) * 100 : null
+  const spxPct     = spx.value !== null && spxH.ath !== null ? (spx.value / spxH.ath - 1) * 100 : null
+  const spxPrevPct = spx.prev  !== null && spxH.ath !== null ? (spx.prev  / spxH.ath - 1) * 100 : null
+  const ndxPct     = ndx.value !== null && ndxH.ath !== null ? (ndx.value / ndxH.ath - 1) * 100 : null
+  const rutPct     = rut.value !== null && rutH.ath !== null ? (rut.value / rutH.ath - 1) * 100 : null
 
   // ATH header notes
   const goldAthNote = gcfH.ath
     ? `ATH $${gcfH.ath.toFixed(0)}/oz — ${fmtDate(gcfH.athDate)} (${daysAgo(gcfH.athDate)}d ago) · Now $${gcf.value?.toFixed(0) ?? '…'}`
     : gcfH.loading ? 'Calculating ATH…' : undefined
-
   const btcAthNote = btcH.ath
     ? `ATH $${(btcH.ath / 1000).toFixed(1)}k — ${fmtDate(btcH.athDate)} (${daysAgo(btcH.athDate)}d ago) · Now $${btc.lastValue ? (btc.lastValue / 1000).toFixed(1) + 'k' : '…'}`
     : btcH.loading ? 'Calculating ATH…' : undefined
@@ -199,39 +223,15 @@ export function OverviewSection() {
   return (
     <div className="section-enter flex flex-col gap-3">
       <p className="text-[10.5px] text-text-muted leading-relaxed">
-        Macro risk gauges — green = favorable reading, red = stress. Delta color matches the arc:
-        for stress metrics falling is green; for wealth assets rising is green.
+        Macro risk gauges — green = favorable, red = stress. Delta color matches the arc.
       </p>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
 
         {/* ═══════════════════════════════════════════════════════════════════
-            0 — OVERALL ECONOMY
+            US HEADLINE ECONOMY & FISCAL
         ═══════════════════════════════════════════════════════════════════ */}
-        <SectionLabel title="Overall Economy" />
-
-        {/* Inflation Expectations — TIPS 5Y / 10Y / 30Y multi-needle */}
-        {(() => {
-          const delta = t10yie.lastValue !== null && t10yie.prevValue !== null ? t10yie.lastValue - t10yie.prevValue : null
-          return (
-            <GaugeCard title="Inflation Expectations (TIPS)"
-              subtitle="Breakeven inflation: nominal minus TIPS yield. <1%=deflation risk; >2%=hot"
-              source="FRED T5YIE T10YIE T30YIEM"
-              delta={delta} deltaColor={getDeltaColor(delta, true)}
-              formatDelta={(d) => `${Math.abs(d).toFixed(2)}%`}>
-              <GaugeChart
-                needles={[
-                  { value: t5yie.lastValue,  color: '#38bdf8', label: '5Y'  },
-                  { value: t10yie.lastValue, color: '#fb923c', label: '10Y' },
-                  { value: t30yie.lastValue, color: '#a78bfa', label: '30Y' },
-                ]}
-                min={-0.5} max={5} greenMax={1} redMin={2}
-                format={(v) => `${v.toFixed(2)}%`}
-                loading={t5yie.loading || t10yie.loading}
-                greenLabel="Low" yellowLabel="Target" redLabel="Hot" />
-            </GaugeCard>
-          )
-        })()}
+        <SectionLabel title="US Headline Economy & Fiscal" />
 
         {/* US Debt / GDP */}
         {(() => {
@@ -249,12 +249,128 @@ export function OverviewSection() {
           )
         })()}
 
+        {/* Inflation — CPI + Core CPI multi-needle */}
+        {(() => {
+          const delta = cpi.lastValue !== null && cpi.prevValue !== null ? cpi.lastValue - cpi.prevValue : null
+          return (
+            <GaugeCard title="Inflation — CPI YoY"
+              subtitle="Headline & core CPI YoY %. Fed target=2%. >3%=hot; <1%=deflation risk"
+              source="FRED CPIAUCSL, CPILFESL"
+              delta={delta} deltaColor={getDeltaColor(delta, true)}
+              formatDelta={(d) => `${Math.abs(d).toFixed(2)}%`}>
+              <GaugeChart
+                needles={[
+                  { value: cpi.lastValue,     color: '#f87171', label: 'CPI'  },
+                  { value: coreCpi.lastValue, color: '#fb923c', label: 'Core' },
+                ]}
+                min={-1} max={10} greenMax={2} redMin={3}
+                format={(v) => `${v.toFixed(2)}%`}
+                loading={cpi.loading || coreCpi.loading}
+                greenLabel="Target" yellowLabel="Above Target" redLabel="Hot" />
+            </GaugeCard>
+          )
+        })()}
+
+        {/* Unemployment */}
+        {(() => {
+          const delta = unrate.lastValue !== null && unrate.prevValue !== null ? unrate.lastValue - unrate.prevValue : null
+          return (
+            <GaugeCard title="Unemployment Rate"
+              subtitle="US headline unemployment. <4%=tight labor market; >6%=slack/recession signal"
+              source="FRED UNRATE"
+              delta={delta} deltaColor={getDeltaColor(delta, true)}
+              formatDelta={(d) => `${Math.abs(d).toFixed(1)}%`}>
+              <GaugeChart value={unrate.lastValue} min={0} max={15} greenMax={4} redMin={6}
+                format={(v) => `${v.toFixed(1)}%`} loading={unrate.loading}
+                greenLabel="Tight" yellowLabel="Softening" redLabel="Slack" />
+            </GaugeCard>
+          )
+        })()}
+
+        {/* Business Cycle — CFNAI (composite proxy for PMI) */}
+        {(() => {
+          const delta = cfnai.lastValue !== null && cfnai.prevValue !== null ? cfnai.lastValue - cfnai.prevValue : null
+          return (
+            <GaugeCard title="Business Cycle — CFNAI"
+              subtitle="Chicago Fed 85-indicator composite. 0=trend; >+0.5=strong; <-0.3=contraction"
+              source="FRED CFNAI"
+              delta={delta} deltaColor={getDeltaColor(delta, false)}
+              formatDelta={(d) => `${Math.abs(d).toFixed(2)}`}>
+              {/* inverted: right=green (high CFNAI=growth), left=red (contraction) */}
+              <GaugeChart value={cfnai.lastValue} min={-3} max={3}
+                greenMax={0.5} redMin={-0.3} inverted
+                format={(v) => v.toFixed(2)} loading={cfnai.loading}
+                greenLabel="Expansion" yellowLabel="Trend" redLabel="Contraction" />
+            </GaugeCard>
+          )
+        })()}
+
+        {/* Interest Expense as % of Tax Receipts */}
+        {(() => {
+          const delta = intExpRatioV !== null && intExpRatioP !== null ? intExpRatioV - intExpRatioP : null
+          return (
+            <GaugeCard title="Interest Expense / Tax Receipts"
+              subtitle="Federal interest payments as % of revenue. >25%=unsustainable; >33%=crisis"
+              source="FRED A091RC1Q027SBEA / W006RC1Q027SBEA"
+              delta={delta} deltaColor={getDeltaColor(delta, true)}
+              formatDelta={(d) => `${Math.abs(d).toFixed(1)}%`}>
+              <GaugeChart value={intExpRatioV} min={0} max={60} greenMax={15} redMin={25}
+                format={(v) => `${v.toFixed(1)}%`}
+                loading={intExp.loading || taxRec.loading}
+                greenLabel="Healthy" yellowLabel="Elevated" redLabel="Unsustainable" />
+            </GaugeCard>
+          )
+        })()}
+
+        {/* Deficit as % of GDP */}
+        {(() => {
+          const delta = deficitV !== null && deficitP !== null ? deficitV - deficitP : null
+          return (
+            <GaugeCard title="Federal Deficit as % of GDP"
+              subtitle="Annual deficit magnitude. >3%=expansionary; >5%=fiscal dominance zone"
+              source="FRED FYFSGDA188S (negated)"
+              delta={delta} deltaColor={getDeltaColor(delta, true)}
+              formatDelta={(d) => `${Math.abs(d).toFixed(1)}%`}>
+              <GaugeChart value={deficitV} min={0} max={20} greenMax={3} redMin={5}
+                format={(v) => `${v.toFixed(1)}%`} loading={deficitGdp.loading}
+                greenLabel="Contained" yellowLabel="Expansionary" redLabel="Dominance" />
+            </GaugeCard>
+          )
+        })()}
+
+        {/* ═══════════════════════════════════════════════════════════════════
+            ECONOMY BEHIND THE HEADLINES
+        ═══════════════════════════════════════════════════════════════════ */}
+        <SectionLabel title="Economy Behind the Headlines" />
+
+        {/* Inflation Expectations — TIPS 5Y / 10Y */}
+        {(() => {
+          const delta = t10yie.lastValue !== null && t10yie.prevValue !== null ? t10yie.lastValue - t10yie.prevValue : null
+          return (
+            <GaugeCard title="Inflation Expectations (TIPS)"
+              subtitle="Breakeven: nominal minus TIPS yield. <1%=deflation risk; >2%=above target"
+              source="FRED T5YIE, T10YIE"
+              delta={delta} deltaColor={getDeltaColor(delta, true)}
+              formatDelta={(d) => `${Math.abs(d).toFixed(2)}%`}>
+              <GaugeChart
+                needles={[
+                  { value: t5yie.lastValue,  color: '#38bdf8', label: '5Y'  },
+                  { value: t10yie.lastValue, color: '#fb923c', label: '10Y' },
+                ]}
+                min={-0.5} max={5} greenMax={1} redMin={2}
+                format={(v) => `${v.toFixed(2)}%`}
+                loading={t5yie.loading || t10yie.loading}
+                greenLabel="Low" yellowLabel="Target" redLabel="Hot" />
+            </GaugeCard>
+          )
+        })()}
+
         {/* Gold/Oil ratio (Howell) */}
         {(() => {
           const delta = goldOilV !== null && goldOilP !== null ? goldOilV - goldOilP : null
           return (
             <GaugeCard title="Gold/Oil Ratio (Howell)"
-              subtitle="Barrels of WTI per oz of gold. Rising = monetary liquidity excess"
+              subtitle="Barrels of WTI per oz of gold. Rising = monetary liquidity excess vs real economy"
               source="Yahoo GC=F ÷ CL=F"
               delta={delta} deltaColor={getDeltaColor(delta, false)}
               formatDelta={(d) => `${Math.abs(d).toFixed(2)}×`}>
@@ -270,7 +386,7 @@ export function OverviewSection() {
           const delta = m2.lastValue !== null && m2.prevValue !== null ? m2.lastValue - m2.prevValue : null
           return (
             <GaugeCard title="M2 Money Supply YoY"
-              subtitle="Broad money supply YoY % change. <5%=low monetary inflation; >10%=high"
+              subtitle="Broad money YoY % change. <5%=low monetary inflation; >10%=high"
               source="FRED M2SL pc1"
               delta={delta} deltaColor={getDeltaColor(delta, true)}
               formatDelta={(d) => `${Math.abs(d).toFixed(2)}%`}>
@@ -282,7 +398,7 @@ export function OverviewSection() {
         })()}
 
         {/* ═══════════════════════════════════════════════════════════════════
-            1 — BOND MARKET
+            BOND MARKET
         ═══════════════════════════════════════════════════════════════════ */}
         <SectionLabel title="Bond Market" />
 
@@ -353,7 +469,7 @@ export function OverviewSection() {
         })()}
 
         {/* ═══════════════════════════════════════════════════════════════════
-            2 — PLUMBING
+            PLUMBING
         ═══════════════════════════════════════════════════════════════════ */}
         <SectionLabel title="Plumbing" />
 
@@ -373,8 +489,28 @@ export function OverviewSection() {
           )
         })()}
 
+        {/* Bank Reserves to GDP */}
+        {/* 2019 repo crisis: reserves ~$1.5T on ~$21T GDP = ~7%. Stress <7%, ample >10% */}
+        {(() => {
+          const delta = resGdpV !== null && resGdpP !== null ? resGdpV - resGdpP : null
+          return (
+            <GaugeCard title="Bank Reserves / GDP"
+              subtitle="Fed reserve balances as % of GDP. <7%=stress (2019 repo crisis); >10%=ample"
+              source="FRED WRBWFRBL, GDP"
+              delta={delta} deltaColor={getDeltaColor(delta, false)}
+              formatDelta={(d) => `${Math.abs(d).toFixed(2)}%`}>
+              {/* inverted: right=green (high reserves=ample), left=red (low=stress) */}
+              <GaugeChart value={resGdpV} min={0} max={20}
+                greenMax={10} redMin={7} inverted
+                format={(v) => `${v.toFixed(1)}%`}
+                loading={reserves.loading || gdp.loading}
+                greenLabel="Ample" yellowLabel="Adequate" redLabel="Stress" />
+            </GaugeCard>
+          )
+        })()}
+
         {/* ═══════════════════════════════════════════════════════════════════
-            3 — CORPORATE CREDIT
+            CORPORATE CREDIT
         ═══════════════════════════════════════════════════════════════════ */}
         <SectionLabel title="Corporate Credit" />
 
@@ -395,14 +531,12 @@ export function OverviewSection() {
           )
         })()}
 
-        {/* Corporate credit — BAA minus Fed Funds Rate */}
-        {/* High spread = credit stress / money leaving corps = green (liquidity signal) */}
-        {/* Low spread  = compressed risk premia = red (liquidity into financial assets) */}
+        {/* Corporate credit BAA − EFFR */}
         {(() => {
           const delta = baaffV !== null && baaffP !== null ? baaffV - baaffP : null
           return (
             <GaugeCard title="Corporate Credit — BAA minus EFFR"
-              subtitle="Moody's Baa yield − Fed Funds. High=credit stress/green: liquidity leaving financial assets"
+              subtitle="Moody's Baa minus fed funds. High=stress/green: money leaving financial assets"
               source="FRED DBAA, DFF"
               delta={delta} deltaColor={getDeltaColor(delta, false)}
               formatDelta={(d) => `${Math.abs(d).toFixed(2)}%`}>
@@ -415,7 +549,7 @@ export function OverviewSection() {
         })()}
 
         {/* ═══════════════════════════════════════════════════════════════════
-            4 — EQUITY MARKET
+            EQUITY MARKET
         ═══════════════════════════════════════════════════════════════════ */}
         <SectionLabel title="Equity Market" />
 
@@ -435,12 +569,12 @@ export function OverviewSection() {
           )
         })()}
 
-        {/* Gromen Buffett Indicator: (Mktcap − Fed Debt) / GDP */}
+        {/* Gromen Buffett */}
         {(() => {
           const delta = gromenV !== null && gromenP !== null ? gromenV - gromenP : null
           return (
             <GaugeCard title="Buffett Indicator (Gromen)"
-              subtitle="(US mktcap − federal debt) ÷ GDP. Adjusts for QE-era monetization. >100%=overvalued"
+              subtitle="(US mktcap − federal debt) ÷ GDP. Strips QE-era debt premium. >100%=overvalued"
               source="FRED NCBCEL, GFDEBTN, GDP"
               delta={delta} deltaColor={getDeltaColor(delta, true)}
               formatDelta={(d) => `${Math.abs(d).toFixed(1)}%`}>
@@ -452,7 +586,7 @@ export function OverviewSection() {
           )
         })()}
 
-        {/* Equity indices % from ATH — multi-needle: SPX / NDX / RUT */}
+        {/* Equity % from ATH — SPX / NDX / RUT */}
         {(() => {
           const delta = spxPct !== null && spxPrevPct !== null ? spxPct - spxPrevPct : null
           return (
@@ -467,8 +601,7 @@ export function OverviewSection() {
                   { value: ndxPct, color: '#8b5cf6', label: 'NDX' },
                   { value: rutPct, color: '#f59e0b', label: 'RUT' },
                 ]}
-                min={-60} max={0}
-                greenMax={-5} redMin={-15} inverted
+                min={-60} max={0} greenMax={-5} redMin={-15} inverted
                 format={(v) => `${v.toFixed(1)}%`}
                 loading={spx.loading || spxH.loading}
                 greenLabel="Near ATH" yellowLabel="Recovery" redLabel="Bear Zone" />
@@ -477,7 +610,7 @@ export function OverviewSection() {
         })()}
 
         {/* ═══════════════════════════════════════════════════════════════════
-            5 — CURRENCY
+            CURRENCY
         ═══════════════════════════════════════════════════════════════════ */}
         <SectionLabel title="Currency" />
 
@@ -514,7 +647,7 @@ export function OverviewSection() {
         })()}
 
         {/* ═══════════════════════════════════════════════════════════════════
-            6 — OIL
+            OIL
         ═══════════════════════════════════════════════════════════════════ */}
         <SectionLabel title="Oil" />
 
@@ -563,7 +696,7 @@ export function OverviewSection() {
         })()}
 
         {/* ═══════════════════════════════════════════════════════════════════
-            7 — METALS
+            METALS
         ═══════════════════════════════════════════════════════════════════ */}
         <SectionLabel title="Metals" />
 
@@ -637,7 +770,7 @@ export function OverviewSection() {
         })()}
 
         {/* ═══════════════════════════════════════════════════════════════════
-            8 — BITCOIN
+            BITCOIN
         ═══════════════════════════════════════════════════════════════════ */}
         <SectionLabel title="Bitcoin" />
 
@@ -698,28 +831,27 @@ export function OverviewSection() {
       {/* Contextual notes */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-1">
         <div className="bg-bg-card border border-bg-border rounded-xl px-4 py-3 text-[10.5px] text-text-muted leading-relaxed">
-          <span className="text-text-secondary font-semibold">Gromen Buffett Indicator: </span>
-          Luke Gromen's adjustment subtracts US federal debt from market cap before dividing by GDP.
-          The thesis: in the QE era the Fed has signaled it will monetize the national debt
-          ("print the difference"), so the nominal market cap embeds a debt-inflation premium.
-          Stripping it out gives a truer picture of equity valuation relative to the real economy.
-          Formula: (NCBCEL − GFDEBTN) ÷ GDP × 100.
+          <span className="text-text-secondary font-semibold">Business Cycle — CFNAI: </span>
+          ISM Manufacturing PMI is not available via free APIs (ISM charges for distribution).
+          The Chicago Fed National Activity Index (CFNAI) is the best free substitute — a
+          weighted composite of 85 monthly indicators covering production, employment, personal
+          consumption, and sales. Zero = historical trend growth. Above +0.5 = strong expansion;
+          below −0.3 = contraction risk; sustained below −0.7 = likely recession.
         </div>
         <div className="bg-bg-card border border-bg-border rounded-xl px-4 py-3 text-[10.5px] text-text-muted leading-relaxed">
-          <span className="text-text-secondary font-semibold">Corporate credit (BAA−EFFR): </span>
-          When the Baa spread over the fed funds rate <em>rises</em>, credit risk premia widen —
-          money is leaving corporate bonds for safer assets. Counterintuitively this is green here:
-          a wider spread means liquidity is flowing away from financial-asset inflation and back
-          toward real credit analysis. A compressed spread ({'<'} 1.5%) signals euphoric risk-on
-          conditions where capital is chasing yield regardless of fundamentals.
+          <span className="text-text-secondary font-semibold">Bank Reserves / GDP: </span>
+          In September 2019, reserve balances fell to ~$1.5T (~7% of ~$21T GDP) triggering the
+          repo market crisis and forcing the Fed to restart asset purchases. The level at which
+          reserves become structurally insufficient is estimated at 8–10% of GDP by the New York
+          Fed. Below 7% is considered stress territory. Current: ~9.6% (adequate but declining).
         </div>
         <div className="bg-bg-card border border-bg-border rounded-xl px-4 py-3 text-[10.5px] text-text-muted leading-relaxed">
-          <span className="text-text-secondary font-semibold">TIPS breakeven inflation: </span>
-          Computed by the Fed as the difference between nominal Treasury yields and TIPS yields
-          of the same maturity. The 5Y and 10Y series are daily; 30Y is monthly. A reading
-          above 2% signals the market expects inflation to run above the Fed's target, potentially
-          forcing the Fed's hand on rates. Below 1% suggests deflation risk or demand collapse.
-          No 2Y FRED series exists; 5Y/10Y/30Y cover the curve adequately.
+          <span className="text-text-secondary font-semibold">Interest Expense / Tax Receipts: </span>
+          Net federal interest payments (SAAR) as a share of total federal tax receipts (SAAR).
+          Currently ~33% — meaning 1 in 3 dollars of tax revenue goes purely to service existing
+          debt, before any spending. At ~25% the OMB classifies debt as "severely stressed."
+          Gromen argues this is the single most important fiscal metric: once it exceeds 30%
+          governments historically must choose between default, inflation, or monetization.
         </div>
       </div>
     </div>
