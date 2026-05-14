@@ -52,6 +52,11 @@ export function OverviewSection() {
   const fedDebt = useFRED('GFDEBTN',          fredApiKey, { frequency: 'q', observationStart: '2000-01-01' })
   const gdp     = useFRED('GDP',              fredApiKey, { frequency: 'q', observationStart: '2000-01-01' })
   const debtGdp = useFRED('GFDEGDQ188S',      fredApiKey, { frequency: 'q', observationStart: '2000-01-01' })
+  // ── FRED — fiscal (for US Fiscal gauge row) ───────────────────────────────
+  const taxRec       = useFRED('W006RC1Q027SBEA', fredApiKey, { frequency: 'q', observationStart: '2020-01-01' })
+  const interestRatio= useFRED('A091RC1Q027SBEA', fredApiKey, { frequency: 'q', observationStart: '2020-01-01' })
+  const deficitPct   = useFRED('FYFSGDA188S',     fredApiKey, { frequency: 'a', observationStart: '2020-01-01' })
+  const tga          = useFRED('WTREGEN',          fredApiKey, { frequency: 'w', observationStart: '2025-01-01' })
   // ── FRED — annual (none currently needed here) ────────────────────────────
 
   // ── Yahoo Finance ─────────────────────────────────────────────────────────
@@ -102,6 +107,14 @@ export function OverviewSection() {
   // BAA − EFFR spread
   const baaffV = baa.lastValue !== null && effr.lastValue !== null ? baa.lastValue - effr.lastValue : null
   const baaffP = baa.prevValue !== null && effr.prevValue !== null ? baa.prevValue - effr.prevValue : null
+
+  // Fiscal derived
+  const intExpRatioV = interestRatio.lastValue !== null && taxRec.lastValue !== null && taxRec.lastValue > 0
+    ? (interestRatio.lastValue / taxRec.lastValue) * 100 : null
+  const intExpRatioP = interestRatio.prevValue !== null && taxRec.prevValue !== null && taxRec.prevValue > 0
+    ? (interestRatio.prevValue / taxRec.prevValue) * 100 : null
+  const deficitV = deficitPct.lastValue !== null ? -deficitPct.lastValue : null
+  const deficitP = deficitPct.prevValue !== null ? -deficitPct.prevValue : null
 
   // Gold in CNY
   const goldCnyV = gcf.value !== null && cnyx.value !== null ? gcf.value * cnyx.value : null
@@ -235,6 +248,60 @@ export function OverviewSection() {
                 greenMax={0.5} redMin={-0.3} inverted
                 format={(v) => v.toFixed(2)} loading={cfnai.loading}
                 greenLabel="Expansion" yellowLabel="Trend" redLabel="Contraction" />
+            </GaugeCard>
+          )
+        })()}
+
+        {/* ═══════════════════════════════════════════════════════════════════
+            US FISCAL
+        ═══════════════════════════════════════════════════════════════════ */}
+        <SectionLabel title="US Fiscal" />
+
+        {/* Interest / Tax Receipts */}
+        {(() => {
+          const delta = intExpRatioV !== null && intExpRatioP !== null ? intExpRatioV - intExpRatioP : null
+          return (
+            <GaugeCard title="Interest / Tax Receipts"
+              subtitle="Federal interest payments as % of tax revenue. >25%=severely stressed per OMB"
+              source="FRED A091RC1Q027SBEA, W006RC1Q027SBEA"
+              delta={delta} deltaColor={getDeltaColor(delta, true)}
+              formatDelta={(d) => `${Math.abs(d).toFixed(1)}%`}>
+              <GaugeChart value={intExpRatioV} min={0} max={60} greenMax={15} redMin={25}
+                format={(v) => `${v.toFixed(1)}%`}
+                loading={interestRatio.loading || taxRec.loading}
+                greenLabel="Healthy" yellowLabel="Elevated" redLabel="Unsustainable" />
+            </GaugeCard>
+          )
+        })()}
+
+        {/* Deficit / GDP */}
+        {(() => {
+          const delta = deficitV !== null && deficitP !== null ? deficitV - deficitP : null
+          return (
+            <GaugeCard title="Federal Deficit / GDP"
+              subtitle="Annual deficit as % of GDP (sign flipped: high = large deficit). >5%=fiscal dominance"
+              source="FRED FYFSGDA188S"
+              delta={delta} deltaColor={getDeltaColor(delta, true)}
+              formatDelta={(d) => `${Math.abs(d).toFixed(1)}%`}>
+              <GaugeChart value={deficitV} min={0} max={20} greenMax={3} redMin={5}
+                format={(v) => `${v.toFixed(1)}%`} loading={deficitPct.loading}
+                greenLabel="Contained" yellowLabel="Expansionary" redLabel="Dominance" />
+            </GaugeCard>
+          )
+        })()}
+
+        {/* TGA Balance */}
+        {(() => {
+          const tgaB = tga.lastValue !== null ? tga.lastValue / 1000 : null
+          return (
+            <GaugeCard title="TGA Balance"
+              subtitle="Treasury General Account. <$100B=depleted (forced issuance / market stress)"
+              source="FRED WTREGEN"
+              delta={null} deltaColor="#64748b"
+              formatDelta={() => ''}>
+              <GaugeChart value={tgaB} min={0} max={1000} greenMax={500} redMin={100}
+                format={(v) => `$${v.toFixed(0)}B`} loading={tga.loading}
+                greenLabel="Ample" yellowLabel="Low" redLabel="Depleted" />
             </GaugeCard>
           )
         })()}
