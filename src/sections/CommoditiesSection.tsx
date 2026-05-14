@@ -1,13 +1,17 @@
-import { useMemo } from 'react'
 import { useApp } from '../context/AppContext'
 import { useFRED } from '../hooks/useFRED'
+import { useYahoo } from '../hooks/useYahoo'
+import { useYahooHistory } from '../hooks/useYahooHistory'
 import { TradingViewChart } from '../components/charts/TradingViewChart'
 import { ChartCard, NoApiKeyCard } from '../components/cards/MetricCard'
 import { MacroChart } from '../components/charts/MacroChart'
+import { GaugeChart, deltaColor as getDeltaColor } from '../components/charts/GaugeChart'
+import { GaugeCard } from '../components/charts/GaugeCard'
 
 const CHART_HEIGHT = 400
 
-const commodityCharts = [
+// Metals only — oil lives in its own OilSection
+const metalsCharts = [
   {
     symbol: 'TVC:GOLD',
     title: 'Gold (XAU/USD)',
@@ -19,34 +23,6 @@ const commodityCharts = [
     symbol: 'TVC:SILVER',
     title: 'Silver (XAG/USD)',
     subtitle: 'Spot price — weekly',
-    badge: 'TradingView',
-    interval: 'W',
-  },
-  {
-    symbol: 'TVC:USOIL',
-    title: 'WTI Crude Oil — Spot',
-    subtitle: 'West Texas Intermediate',
-    badge: 'TradingView',
-    interval: 'W',
-  },
-  {
-    symbol: 'TVC:UKOIL',
-    title: 'Brent Crude Oil — Spot',
-    subtitle: 'North Sea Brent benchmark',
-    badge: 'TradingView',
-    interval: 'W',
-  },
-  {
-    symbol: 'NYSE:USO',
-    title: 'WTI Crude — USO Fund (futures-rolling proxy)',
-    subtitle: 'US Oil Fund — tracks front-month WTI futures roll',
-    badge: 'TradingView',
-    interval: 'W',
-  },
-  {
-    symbol: 'NYSE:UNG',
-    title: 'Natural Gas — UNG Fund',
-    subtitle: 'US Natural Gas Fund — Henry Hub futures proxy',
     badge: 'TradingView',
     interval: 'W',
   },
@@ -71,36 +47,153 @@ const commodityCharts = [
     badge: 'TradingView',
     interval: 'W',
   },
+  {
+    symbol: 'AMEX:GDX',
+    title: 'Gold Miners — GDX ETF',
+    subtitle: 'VanEck Gold Miners — leveraged gold + M&A signal',
+    badge: 'TradingView',
+    interval: 'W',
+  },
 ]
+
+function daysAgo(isoDate: string | null): number | null {
+  if (!isoDate) return null
+  return Math.round((Date.now() - new Date(isoDate).getTime()) / 86_400_000)
+}
+function fmtDate(isoDate: string | null): string {
+  if (!isoDate) return '—'
+  return new Date(isoDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+}
 
 export function CommoditiesSection() {
   const { fredApiKey } = useApp()
 
-  // FRED historical data — gold ($/oz) and oil ($/bbl) are direct price series, no unit conversion needed
+  // FRED historical — gold only (oil is in OilSection)
   const goldFRED = useFRED('GOLDAMGBD228NLBM', fredApiKey, { frequency: 'm', observationStart: '1968-01-01' })
-  const oilFRED  = useFRED('DCOILWTICO',       fredApiKey, { frequency: 'm', observationStart: '1986-01-01' })
-  const brentFRED = useFRED('DCOILBRENTEU',    fredApiKey, { frequency: 'm', observationStart: '1987-01-01' })
 
-  // Brent − WTI spread ($/bbl)
-  const brentWtiSpread = useMemo(() => {
-    if (!brentFRED.data.length || !oilFRED.data.length) return []
-    const wtiMap = new Map(oilFRED.data.map(d => [d.date, d.value]))
-    return brentFRED.data
-      .filter(d => wtiMap.has(d.date))
-      .map(d => ({ date: d.date, value: d.value - (wtiMap.get(d.date) ?? 0) }))
-  }, [brentFRED.data, oilFRED.data])
+  // Yahoo spot prices for gauge ratios
+  const gcf  = useYahoo('GC=F')
+  const sif  = useYahoo('SI=F')
+  const hgf  = useYahoo('HG=F')
+  const cnyx = useYahoo('CNY=X')
+
+  // ATH for Gold
+  const gcfH = useYahooHistory('GC=F', '5y')
+
+  // Derived ratios
+  const goldPct     = gcf.value !== null && gcfH.ath !== null ? (gcf.value / gcfH.ath - 1) * 100 : null
+  const goldPrevPct = gcf.prev  !== null && gcfH.ath !== null ? (gcf.prev  / gcfH.ath - 1) * 100 : null
+
+  const goldCnyV = gcf.value !== null && cnyx.value !== null ? gcf.value * cnyx.value : null
+  const goldCnyP = gcf.prev  !== null && cnyx.prev  !== null ? gcf.prev  * cnyx.prev  : null
+
+  const gsV = gcf.value !== null && sif.value !== null && sif.value > 0 ? gcf.value / sif.value : null
+  const gsP = gcf.prev  !== null && sif.prev  !== null && sif.prev  > 0 ? gcf.prev  / sif.prev  : null
+
+  const cuAgV = hgf.value !== null && sif.value !== null && sif.value > 0 ? hgf.value / sif.value : null
+  const cuAgP = hgf.prev  !== null && sif.prev  !== null && sif.prev  > 0 ? hgf.prev  / sif.prev  : null
+
+  const goldAthNote = gcfH.ath
+    ? `ATH $${gcfH.ath.toFixed(0)}/oz — ${fmtDate(gcfH.athDate)} (${daysAgo(gcfH.athDate)}d ago) · Now $${gcf.value?.toFixed(0) ?? '…'}`
+    : gcfH.loading ? 'Calculating ATH…' : undefined
 
   return (
     <div className="section-enter flex flex-col gap-6">
+
+      {/* ── Gauge summary ─────────────────────────────────────────────────── */}
+      <div>
+        <p className="text-[10.5px] text-text-muted leading-relaxed mb-3">
+          Metals gauges — ratios signal monetary vs. industrial demand balance.
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+
+          {/* Gold % from ATH */}
+          {(() => {
+            const delta = goldPct !== null && goldPrevPct !== null ? goldPct - goldPrevPct : null
+            return (
+              <GaugeCard
+                title="Gold — % from ATH"
+                subtitle="COMEX front-month vs 5-year ATH. Near ATH=bull confirmation; deep below=value zone."
+                source="Yahoo GC=F (5y)"
+                headerNote={goldAthNote}
+                delta={delta} deltaColor={getDeltaColor(delta, false)}
+                formatDelta={(d) => `${Math.abs(d).toFixed(2)}%`}
+              >
+                <GaugeChart value={goldPct} min={-60} max={0}
+                  greenMax={-10} redMin={-50} inverted
+                  format={(v) => `${v.toFixed(1)}%`}
+                  loading={gcf.loading || gcfH.loading}
+                  greenLabel="Toward ATH" yellowLabel="Recovery" redLabel="Deep Value" />
+              </GaugeCard>
+            )
+          })()}
+
+          {/* Gold/CNY */}
+          {(() => {
+            const delta = goldCnyV !== null && goldCnyP !== null ? goldCnyV - goldCnyP : null
+            return (
+              <GaugeCard
+                title="Gold/CNY — Yuan per Oz"
+                subtitle="Gold in Chinese Yuan. High=repricing / de-dollarization; Low=deep value"
+                source="Yahoo GC=F × CNY=X"
+                delta={delta} deltaColor={getDeltaColor(delta, false)}
+                formatDelta={(d) => `¥${Math.abs(d / 1000).toFixed(1)}k`}
+              >
+                <GaugeChart value={goldCnyV} min={20000} max={50000}
+                  greenMax={35000} redMin={25000} inverted
+                  format={(v) => `¥${(v / 1000).toFixed(0)}k`} loading={gcf.loading || cnyx.loading}
+                  greenLabel="Repricing" yellowLabel="Consolidation" redLabel="Deep Value" />
+              </GaugeCard>
+            )
+          })()}
+
+          {/* Gold/Silver */}
+          {(() => {
+            const delta = gsV !== null && gsP !== null ? gsV - gsP : null
+            return (
+              <GaugeCard
+                title="Gold/Silver Ratio"
+                subtitle="High=monetary demand for gold dominant; Low=silver commodity speculation"
+                source="Yahoo GC=F ÷ SI=F"
+                delta={delta} deltaColor={getDeltaColor(delta, false)}
+                formatDelta={(d) => `${Math.abs(d).toFixed(2)}`}
+              >
+                <GaugeChart value={gsV} min={0} max={150}
+                  greenMax={120} redMin={25} inverted
+                  format={(v) => v.toFixed(1)} loading={gcf.loading || sif.loading}
+                  greenLabel="Monetary Expansion" yellowLabel="Normal" redLabel="Commodity Speculation" />
+              </GaugeCard>
+            )
+          })()}
+
+          {/* Copper/Silver */}
+          {(() => {
+            const delta = cuAgV !== null && cuAgP !== null ? cuAgV - cuAgP : null
+            return (
+              <GaugeCard
+                title="Copper/Silver Ratio (Cu/Ag)"
+                subtitle="HG=F / SI=F. High=industrial expansion dominant; Low=monetary silver demand"
+                source="Yahoo HG=F ÷ SI=F"
+                delta={delta} deltaColor={getDeltaColor(delta, true)}
+                formatDelta={(d) => `${Math.abs(d).toFixed(4)}`}
+              >
+                <GaugeChart value={cuAgV} min={0} max={0.4} greenMax={0.1} redMin={0.3}
+                  format={(v) => v.toFixed(3)} loading={hgf.loading || sif.loading}
+                  greenLabel="Commodity Speculation" yellowLabel="Mixed" redLabel="Industrial Expansion" />
+              </GaugeCard>
+            )
+          })()}
+
+        </div>
+      </div>
+
       {/* Context pills */}
       <div className="flex flex-wrap gap-2">
         {[
           { label: 'Gold: monetary remonetization + CB buying', color: '#f59e0b' },
-          { label: 'Oil: Strait of Hormuz flow disruption risk', color: '#ef4444' },
           { label: 'Copper: China PMI / industrial demand proxy', color: '#f97316' },
           { label: 'Silver: industrial + monetary dual role', color: '#94a3b8' },
           { label: 'Uranium: nuclear renaissance (energy transition)', color: '#22c55e' },
-          { label: 'NatGas: European energy security', color: '#3b82f6' },
         ].map((p) => (
           <span
             key={p.label}
@@ -112,7 +205,7 @@ export function CommoditiesSection() {
         ))}
       </div>
 
-      {/* Historical long-term charts (FRED) */}
+      {/* Historical long-term chart (FRED) */}
       {fredApiKey ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <ChartCard
@@ -136,33 +229,11 @@ export function CommoditiesSection() {
               </div>
             )}
           </ChartCard>
-
-          <ChartCard
-            title="WTI Crude Oil — Historical (1986–present)"
-            subtitle="Cushing OK WTI Spot Price FOB, USD/bbl"
-            height={320}
-            badge="FRED"
-            note="Denominator switching applies — view oil priced in gold, BTC, etc."
-          >
-            {oilFRED.data.length > 0 ? (
-              <MacroChart
-                data={oilFRED.data}
-                label="WTI ($/bbl)"
-                color="#ef4444"
-                unit="$"
-                denominate
-              />
-            ) : (
-              <div className="h-full flex items-center justify-center text-text-muted text-sm">
-                {oilFRED.loading ? 'Loading…' : 'No data — check FRED key'}
-              </div>
-            )}
-          </ChartCard>
         </div>
       ) : (
         <div>
           <p className="text-xs text-text-muted mb-2">
-            Add FRED key for historical data back to the 1800s (via FRED + World Bank)
+            Add FRED key for historical data back to 1968
           </p>
           <NoApiKeyCard />
         </div>
@@ -174,7 +245,7 @@ export function CommoditiesSection() {
           Live Market Charts — TradingView
         </h3>
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          {commodityCharts.map((c) => (
+          {metalsCharts.map((c) => (
             <ChartCard
               key={c.symbol}
               title={c.title}
@@ -187,44 +258,6 @@ export function CommoditiesSection() {
             </ChartCard>
           ))}
         </div>
-      </div>
-
-      {/* Strait of Hormuz note */}
-      <div className="bg-bg-card border border-accent-orange/30 rounded-xl p-4">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-accent-orange text-sm">⚠</span>
-          <h4 className="text-sm font-medium text-accent-orange">
-            Strait of Hormuz — Supply Disruption Monitor
-          </h4>
-        </div>
-        <p className="text-xs text-text-muted leading-relaxed">
-          ~21 million barrels/day (≈20% of global oil supply) transits the Strait of Hormuz.
-          Real-time vessel tracking data requires specialist sources (e.g.{' '}
-          <strong className="text-text-secondary">Kpler, Vortexa, MarineTraffic Enterprise</strong>).
-          Key signal: sustained drop in daily tanker transits → Brent/WTI premium spike.
-          Monitor Brent–WTI spread as a proxy for Middle East supply risk premium.
-        </p>
-        {fredApiKey && brentWtiSpread.length > 0 ? (
-          <div className="mt-3" style={{ height: 200 }}>
-            <MacroChart
-              data={brentWtiSpread}
-              label="Brent − WTI ($/bbl)"
-              color="#f97316"
-              unit="$"
-              type="area"
-              refLine={0}
-            />
-          </div>
-        ) : (
-          <div className="mt-3 grid grid-cols-2 gap-3">
-            <div style={{ height: 200 }}>
-              <TradingViewChart symbol="TVC:UKOIL" interval="D" height={200} />
-            </div>
-            <div style={{ height: 200 }}>
-              <TradingViewChart symbol="TVC:USOIL" interval="D" height={200} />
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Additional context */}

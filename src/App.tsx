@@ -12,6 +12,7 @@ import { UsFiscalSection } from './sections/UsFiscalSection'
 import { CurrenciesSection } from './sections/CurrenciesSection'
 import { CryptoSection } from './sections/CryptoSection'
 import { EquitiesSection } from './sections/EquitiesSection'
+import { OilSection } from './sections/OilSection'
 
 function Dashboard() {
   const [sidebarExpanded, setSidebarExpanded] = useState(true)
@@ -19,8 +20,9 @@ function Dashboard() {
 
   const sectionMap: Record<string, React.ReactNode> = {
     overview: <OverviewSection />,
-    liquidity: <LiquiditySection />,
-    commodities: <CommoditiesSection />,
+    plumbing: <LiquiditySection />,
+    oil: <OilSection />,
+    metals: <CommoditiesSection />,
     'fiat-credit': <FixedIncomeSection />,
     'central-banks': <CentralBanksSection />,
     'us-fiscal': <UsFiscalSection />,

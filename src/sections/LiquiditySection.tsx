@@ -3,6 +3,8 @@ import { useApp } from '../context/AppContext'
 import { useFRED } from '../hooks/useFRED'
 import { ChartCard, NoApiKeyCard, MetricCard } from '../components/cards/MetricCard'
 import { MacroChart, MultiMacroChart } from '../components/charts/MacroChart'
+import { GaugeChart, deltaColor as getDeltaColor } from '../components/charts/GaugeChart'
+import { GaugeCard } from '../components/charts/GaugeCard'
 import { Droplets, Activity, TrendingDown } from 'lucide-react'
 
 const START = '2015-01-01'
@@ -26,6 +28,7 @@ export function LiquiditySection() {
   const m0       = useFRED('BOGMBASE', fredApiKey, { frequency: 'm', observationStart: START })
   const sofr     = useFRED('SOFR',     fredApiKey, { frequency: 'd', observationStart: '2018-01-01' })
   const iorb     = useFRED('IORB',     fredApiKey, { frequency: 'd', observationStart: '2021-07-01' })
+  const gdp      = useFRED('GDP',      fredApiKey, { frequency: 'q', observationStart: '2000-01-01' })
 
   // Normalise WALCL (millions) → billions
   const fedBsB = useMemo(() => fedBs.data.map(d => ({ date: d.date, value: d.value / 1000 })), [fedBs.data])
@@ -64,13 +67,69 @@ export function LiquiditySection() {
   }, [m2.data, m0.data])
 
   const lastSpread = sofrIorbSpread.length ? sofrIorbSpread[sofrIorbSpread.length - 1].value : null
+  const prevSpread = sofrIorbSpread.length > 1 ? sofrIorbSpread[sofrIorbSpread.length - 2].value : null
   const lastNetLiq = netLiquidity.length ? netLiquidity[netLiquidity.length - 1].value : null
   const lastReserves = reserves.lastValue  // already in $B
+
+  // Bank reserves to GDP %: WRBWFRBL ($M) / 1000 / GDP ($B) × 100
+  const resGdpV = reserves.lastValue !== null && gdp.lastValue !== null
+    ? (reserves.lastValue / 1000 / gdp.lastValue) * 100 : null
+  const resGdpP = reserves.prevValue !== null && gdp.lastValue !== null
+    ? (reserves.prevValue / 1000 / gdp.lastValue) * 100 : null
 
   if (!fredApiKey) return <div className="section-enter"><NoApiKeyCard /></div>
 
   return (
     <div className="section-enter flex flex-col gap-6">
+
+      {/* ── Gauge summary ───────────────────────────────────────────────────── */}
+      <div>
+        <p className="text-[10.5px] text-text-muted leading-relaxed mb-3">
+          Plumbing stress gauges — green = easy liquidity conditions, red = stress.
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+
+          {/* SOFR − IORB */}
+          {(() => {
+            const delta = lastSpread !== null && prevSpread !== null ? lastSpread - prevSpread : null
+            return (
+              <GaugeCard
+                title="US Banking Stress — SOFR−IORB"
+                subtitle="Repo stress proxy. <0=excess reserves; >0.10%=reserves scarce"
+                source="FRED SOFR, IORB"
+                delta={delta} deltaColor={getDeltaColor(delta, true)}
+                formatDelta={(d) => `${Math.abs(d).toFixed(3)}%`}
+              >
+                <GaugeChart value={lastSpread} min={-0.2} max={0.5} greenMax={0} redMin={0.1}
+                  format={(v) => `${v.toFixed(3)}%`} loading={sofr.loading || iorb.loading}
+                  greenLabel="Easy" yellowLabel="Tighter" redLabel="Stress" />
+              </GaugeCard>
+            )
+          })()}
+
+          {/* Bank Reserves / GDP */}
+          {(() => {
+            const delta = resGdpV !== null && resGdpP !== null ? resGdpV - resGdpP : null
+            return (
+              <GaugeCard
+                title="Bank Reserves / GDP"
+                subtitle="Fed reserve balances as % of GDP. <7%=stress (2019 repo crisis); >10%=ample"
+                source="FRED WRBWFRBL, GDP"
+                delta={delta} deltaColor={getDeltaColor(delta, false)}
+                formatDelta={(d) => `${Math.abs(d).toFixed(2)}%`}
+              >
+                <GaugeChart value={resGdpV} min={0} max={20}
+                  greenMax={10} redMin={7} inverted
+                  format={(v) => `${v.toFixed(1)}%`}
+                  loading={reserves.loading || gdp.loading}
+                  greenLabel="Ample" yellowLabel="Adequate" redLabel="Stress" />
+              </GaugeCard>
+            )
+          })()}
+
+        </div>
+      </div>
+
       {/* Top cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <MetricCard

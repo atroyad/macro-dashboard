@@ -11,6 +11,7 @@ import {
   Bitcoin,
   LineChart,
   Activity,
+  Flame,
 } from 'lucide-react'
 
 interface NavItem {
@@ -22,8 +23,9 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'overview', label: 'Overview', icon: <LayoutDashboard size={18} />, color: '#00d4aa' },
-  { id: 'liquidity', label: 'Liquidity', icon: <Droplets size={18} />, color: '#3b82f6' },
-  { id: 'commodities', label: 'Commodities', icon: <BarChart3 size={18} />, color: '#f59e0b' },
+  { id: 'plumbing', label: 'Plumbing', icon: <Droplets size={18} />, color: '#3b82f6' },
+  { id: 'oil', label: 'Oil', icon: <Flame size={18} />, color: '#f97316' },
+  { id: 'metals', label: 'Metals', icon: <BarChart3 size={18} />, color: '#f59e0b' },
   { id: 'fiat-credit', label: 'Fiat Credit', icon: <TrendingUp size={18} />, color: '#8b5cf6' },
   { id: 'central-banks', label: 'Central Banks', icon: <Building2 size={18} />, color: '#ef4444' },
   { id: 'us-fiscal', label: 'US Fiscal', icon: <DollarSign size={18} />, color: '#f59e0b' },

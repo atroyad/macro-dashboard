@@ -2,8 +2,9 @@ export type Denominator = 'USD' | 'Gold' | 'Oil' | 'BTC' | 'CNY' | 'EUR'
 
 export type Section =
   | 'overview'
-  | 'liquidity'
-  | 'commodities'
+  | 'plumbing'
+  | 'metals'
+  | 'oil'
   | 'fiat-credit'
   | 'central-banks'
   | 'us-fiscal'

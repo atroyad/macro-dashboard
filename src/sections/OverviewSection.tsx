@@ -5,6 +5,7 @@ import { useYahoo } from '../hooks/useYahoo'
 import { useYahooHistory } from '../hooks/useYahooHistory'
 import { useDeribitDVOL } from '../hooks/useDeribitDVOL'
 import { GaugeChart, deltaColor as getDeltaColor } from '../components/charts/GaugeChart'
+import { GaugeCard, SectionLabel } from '../components/charts/GaugeCard'
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 function daysAgo(isoDate: string | null): number | null {
@@ -14,58 +15,6 @@ function daysAgo(isoDate: string | null): number | null {
 function fmtDate(isoDate: string | null): string {
   if (!isoDate) return '—'
   return new Date(isoDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
-}
-
-// ─── SectionLabel ─────────────────────────────────────────────────────────────
-function SectionLabel({ title }: { title: string }) {
-  return (
-    <div className="col-span-full flex items-center gap-3 pt-3 pb-0.5">
-      <div className="h-px flex-1 bg-bg-border" />
-      <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-text-muted">
-        {title}
-      </span>
-      <div className="h-px flex-1 bg-bg-border" />
-    </div>
-  )
-}
-
-// ─── GaugeCard ───────────────────────────────────────────────────────────────
-interface GaugeCardProps {
-  title: string
-  subtitle: string
-  source?: string
-  delta: number | null
-  deltaColor: string
-  formatDelta: (d: number) => string
-  headerNote?: string
-  children: React.ReactNode
-}
-function GaugeCard({ title, subtitle, source, delta, deltaColor, formatDelta, headerNote, children }: GaugeCardProps) {
-  return (
-    <div className="bg-bg-card border border-bg-border rounded-xl p-3 flex flex-col gap-1">
-      <div className="flex items-start justify-between gap-1 min-h-[2.2rem]">
-        <p className="text-[11px] font-semibold text-text-primary leading-tight">{title}</p>
-        {delta !== null && (
-          <span className="text-[11px] font-mono whitespace-nowrap shrink-0 leading-tight"
-            style={{ color: deltaColor }}>
-            ({delta >= 0 ? '+' : ''}{formatDelta(delta)})
-          </span>
-        )}
-      </div>
-      {headerNote && (
-        <p className="text-[8.5px] font-mono text-text-muted leading-none -mt-0.5">{headerNote}</p>
-      )}
-      {children}
-      <div className="flex items-center justify-between gap-1 mt-0.5">
-        <p className="text-[9.5px] text-text-muted leading-tight truncate">{subtitle}</p>
-        {source && (
-          <span className="text-[8.5px] px-1.5 py-0.5 rounded bg-bg-elevated text-text-muted shrink-0 font-mono">
-            {source}
-          </span>
-        )}
-      </div>
-    </div>
-  )
 }
 
 // ─── OverviewSection ─────────────────────────────────────────────────────────
@@ -103,12 +52,7 @@ export function OverviewSection() {
   const fedDebt = useFRED('GFDEBTN',          fredApiKey, { frequency: 'q', observationStart: '2000-01-01' })
   const gdp     = useFRED('GDP',              fredApiKey, { frequency: 'q', observationStart: '2000-01-01' })
   const debtGdp = useFRED('GFDEGDQ188S',      fredApiKey, { frequency: 'q', observationStart: '2000-01-01' })
-  const intExp  = useFRED('A091RC1Q027SBEA',  fredApiKey, { frequency: 'q', observationStart: '2020-01-01' })
-  const taxRec  = useFRED('W006RC1Q027SBEA',  fredApiKey, { frequency: 'q', observationStart: '2020-01-01' })
-
-  // ── FRED — annual ─────────────────────────────────────────────────────────
-  // Deficit as % of GDP (negative = deficit). Negate to show magnitude.
-  const deficitGdp = useFRED('FYFSGDA188S',   fredApiKey, { frequency: 'a', observationStart: '2000-01-01' })
+  // ── FRED — annual (none currently needed here) ────────────────────────────
 
   // ── Yahoo Finance ─────────────────────────────────────────────────────────
   const move    = useYahoo('^MOVE')
@@ -148,16 +92,6 @@ export function OverviewSection() {
     gromenP: mktcap.prevValue !== null && fedDebt.prevValue !== null && gdp.prevValue !== null
       ? ((mktcap.prevValue - fedDebt.prevValue) / 1000 / gdp.prevValue) * 100 : null,
   }), [mktcap.lastValue, mktcap.prevValue, fedDebt.lastValue, fedDebt.prevValue, gdp.lastValue, gdp.prevValue])
-
-  // Interest expense / tax receipts % (both SAAR $B quarterly)
-  const intExpRatioV = intExp.lastValue !== null && taxRec.lastValue !== null && taxRec.lastValue > 0
-    ? (intExp.lastValue / taxRec.lastValue) * 100 : null
-  const intExpRatioP = intExp.prevValue !== null && taxRec.prevValue !== null && taxRec.prevValue > 0
-    ? (intExp.prevValue / taxRec.prevValue) * 100 : null
-
-  // Deficit as positive % (negate FYFSGDA188S which is negative for deficit)
-  const deficitV = deficitGdp.lastValue !== null ? -deficitGdp.lastValue : null
-  const deficitP = deficitGdp.prevValue !== null ? -deficitGdp.prevValue : null
 
   // Bank reserves to GDP %: WRBWFRBL ($M) / 1000 / GDP ($B) × 100
   const resGdpV = reserves.lastValue !== null && gdp.lastValue !== null
@@ -231,7 +165,7 @@ export function OverviewSection() {
         {/* ═══════════════════════════════════════════════════════════════════
             US HEADLINE ECONOMY & FISCAL
         ═══════════════════════════════════════════════════════════════════ */}
-        <SectionLabel title="US Headline Economy & Fiscal" />
+        <SectionLabel title="US Headline Economy" />
 
         {/* US Debt / GDP */}
         {(() => {
@@ -301,39 +235,6 @@ export function OverviewSection() {
                 greenMax={0.5} redMin={-0.3} inverted
                 format={(v) => v.toFixed(2)} loading={cfnai.loading}
                 greenLabel="Expansion" yellowLabel="Trend" redLabel="Contraction" />
-            </GaugeCard>
-          )
-        })()}
-
-        {/* Interest Expense as % of Tax Receipts */}
-        {(() => {
-          const delta = intExpRatioV !== null && intExpRatioP !== null ? intExpRatioV - intExpRatioP : null
-          return (
-            <GaugeCard title="Interest Expense / Tax Receipts"
-              subtitle="Federal interest payments as % of revenue. >25%=unsustainable; >33%=crisis"
-              source="FRED A091RC1Q027SBEA / W006RC1Q027SBEA"
-              delta={delta} deltaColor={getDeltaColor(delta, true)}
-              formatDelta={(d) => `${Math.abs(d).toFixed(1)}%`}>
-              <GaugeChart value={intExpRatioV} min={0} max={60} greenMax={15} redMin={25}
-                format={(v) => `${v.toFixed(1)}%`}
-                loading={intExp.loading || taxRec.loading}
-                greenLabel="Healthy" yellowLabel="Elevated" redLabel="Unsustainable" />
-            </GaugeCard>
-          )
-        })()}
-
-        {/* Deficit as % of GDP */}
-        {(() => {
-          const delta = deficitV !== null && deficitP !== null ? deficitV - deficitP : null
-          return (
-            <GaugeCard title="Federal Deficit as % of GDP"
-              subtitle="Annual deficit magnitude. >3%=expansionary; >5%=fiscal dominance zone"
-              source="FRED FYFSGDA188S (negated)"
-              delta={delta} deltaColor={getDeltaColor(delta, true)}
-              formatDelta={(d) => `${Math.abs(d).toFixed(1)}%`}>
-              <GaugeChart value={deficitV} min={0} max={20} greenMax={3} redMin={5}
-                format={(v) => `${v.toFixed(1)}%`} loading={deficitGdp.loading}
-                greenLabel="Contained" yellowLabel="Expansionary" redLabel="Dominance" />
             </GaugeCard>
           )
         })()}
@@ -536,14 +437,14 @@ export function OverviewSection() {
           const delta = baaffV !== null && baaffP !== null ? baaffV - baaffP : null
           return (
             <GaugeCard title="Corporate Credit — BAA minus EFFR"
-              subtitle="Moody's Baa minus fed funds. High=stress/green: money leaving financial assets"
+              subtitle="Moody's Baa minus fed funds. Low=compressed spreads; High=credit stress"
               source="FRED DBAA, DFF"
-              delta={delta} deltaColor={getDeltaColor(delta, false)}
+              delta={delta} deltaColor={getDeltaColor(delta, true)}
               formatDelta={(d) => `${Math.abs(d).toFixed(2)}%`}>
               <GaugeChart value={baaffV} min={-1} max={6}
-                greenMax={2.5} redMin={1.5} inverted
+                greenMax={1.5} redMin={2.5}
                 format={(v) => `${v.toFixed(2)}%`} loading={baa.loading || effr.loading}
-                greenLabel="Credit Stress" yellowLabel="Normal" redLabel="Compressed" />
+                greenLabel="Compressed" yellowLabel="Normal" redLabel="Stress" />
             </GaugeCard>
           )
         })()}

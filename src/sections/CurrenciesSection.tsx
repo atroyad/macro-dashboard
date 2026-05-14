@@ -1,5 +1,10 @@
+import { useApp } from '../context/AppContext'
+import { useFRED } from '../hooks/useFRED'
+import { useYahoo } from '../hooks/useYahoo'
 import { TradingViewChart } from '../components/charts/TradingViewChart'
 import { ChartCard } from '../components/cards/MetricCard'
+import { GaugeChart, deltaColor as getDeltaColor } from '../components/charts/GaugeChart'
+import { GaugeCard } from '../components/charts/GaugeCard'
 
 const CHART_HEIGHT = 380
 
@@ -19,8 +24,60 @@ const fxCharts = [
 ]
 
 export function CurrenciesSection() {
+  const { fredApiKey } = useApp()
+  const usdjpy = useFRED('DEXJPUS', fredApiKey, { frequency: 'd', observationStart: '2025-01-01' })
+  const dxy    = useYahoo('DX-Y.NYB')
+
   return (
     <div className="section-enter flex flex-col gap-6">
+
+      {/* ── Gauge summary ─────────────────────────────────────────────────── */}
+      <div>
+        <p className="text-[10.5px] text-text-muted leading-relaxed mb-3">
+          Currency stress gauges — green = balanced, red = extreme stress / carry risk.
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+
+          {/* DXY */}
+          {(() => {
+            const delta = dxy.value !== null && dxy.prev !== null ? dxy.value - dxy.prev : null
+            return (
+              <GaugeCard
+                title="USD Strength — DXY (ICE)"
+                subtitle="ICE Dollar Index. <90=weak USD; >110=strong dollar EM debt pressure"
+                source="Yahoo DX-Y.NYB"
+                delta={delta} deltaColor={getDeltaColor(delta, true)}
+                formatDelta={(d) => `${Math.abs(d).toFixed(2)}`}
+              >
+                <GaugeChart value={dxy.value} min={75} max={125} greenMax={90} redMin={110}
+                  format={(v) => v.toFixed(1)} loading={dxy.loading}
+                  greenLabel="Weak $" yellowLabel="Normal" redLabel="Strong $" />
+              </GaugeCard>
+            )
+          })()}
+
+          {/* USD/JPY */}
+          {(() => {
+            const delta = usdjpy.lastValue !== null && usdjpy.prevValue !== null
+              ? usdjpy.lastValue - usdjpy.prevValue : null
+            return (
+              <GaugeCard
+                title="JPY Hyperinflation — USD/JPY"
+                subtitle="Yen per USD. >160=BoJ yield curve stress + $4T carry trade unwind risk"
+                source="FRED DEXJPUS"
+                delta={delta} deltaColor={getDeltaColor(delta, true)}
+                formatDelta={(d) => `${Math.abs(d).toFixed(2)}`}
+              >
+                <GaugeChart value={usdjpy.lastValue} min={80} max={200} greenMax={100} redMin={160}
+                  format={(v) => v.toFixed(1)} loading={usdjpy.loading}
+                  greenLabel="Strong ¥" yellowLabel="Weak" redLabel="Crisis" />
+              </GaugeCard>
+            )
+          })()}
+
+        </div>
+      </div>
+
       {/* Context */}
       <div className="bg-bg-card border border-bg-border rounded-xl p-4">
         <h4 className="text-sm font-medium text-text-secondary mb-2">

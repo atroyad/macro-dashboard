@@ -3,12 +3,17 @@ import { useApp } from '../context/AppContext'
 import { useFRED } from '../hooks/useFRED'
 import { ChartCard, MetricCard, NoApiKeyCard } from '../components/cards/MetricCard'
 import { MacroChart } from '../components/charts/MacroChart'
+import { GaugeChart, deltaColor as getDeltaColor } from '../components/charts/GaugeChart'
 import { AlertTriangle } from 'lucide-react'
 
 const START = '2000-01-01'
 
 export function UsFiscalSection() {
   const { fredApiKey } = useApp()
+
+  const taxRec    = useFRED('W006RC1Q027SBEA', fredApiKey, { frequency: 'q', observationStart: '2020-01-01' })
+  const interestRatio = useFRED('A091RC1Q027SBEA', fredApiKey, { frequency: 'q', observationStart: '2020-01-01' })
+  const deficitPct = useFRED('FYFSGDA188S', fredApiKey, { frequency: 'a', observationStart: '2000-01-01' })
 
   const fedDebt = useFRED('GFDEBTN', fredApiKey, { frequency: 'q', observationStart: '1960-01-01' })
   const debtGdp = useFRED('GFDEGDQ188S', fredApiKey, { frequency: 'q', observationStart: '1960-01-01' })
@@ -27,11 +32,86 @@ export function UsFiscalSection() {
     }))
   }, [interestExp.data])
 
+  const intExpRatioV = interestRatio.lastValue !== null && taxRec.lastValue !== null && taxRec.lastValue > 0
+    ? (interestRatio.lastValue / taxRec.lastValue) * 100 : null
+  const intExpRatioP = interestRatio.prevValue !== null && taxRec.prevValue !== null && taxRec.prevValue > 0
+    ? (interestRatio.prevValue / taxRec.prevValue) * 100 : null
+  const deficitV = deficitPct.lastValue !== null ? -deficitPct.lastValue : null
+  const deficitP = deficitPct.prevValue !== null ? -deficitPct.prevValue : null
+
   const lastDebt = fedDebt.lastValue
   const lastDebtGdp = debtGdp.lastValue
 
   return (
     <div className="section-enter flex flex-col gap-6">
+      {/* Fiscal Gauges */}
+      {fredApiKey && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {/* US Debt / GDP */}
+          <div className="bg-bg-card border border-bg-border rounded-xl p-3 flex flex-col gap-1">
+            <div className="flex items-start justify-between gap-1 min-h-[2.2rem]">
+              <p className="text-[11px] font-semibold text-text-primary leading-tight">US Debt / GDP</p>
+              {debtGdp.lastValue !== null && debtGdp.prevValue !== null && (
+                <span className="text-[11px] font-mono whitespace-nowrap shrink-0 leading-tight"
+                  style={{ color: getDeltaColor(debtGdp.lastValue - debtGdp.prevValue, true) }}>
+                  ({(debtGdp.lastValue - debtGdp.prevValue) >= 0 ? '+' : ''}{Math.abs(debtGdp.lastValue - debtGdp.prevValue).toFixed(1)}%)
+                </span>
+              )}
+            </div>
+            <GaugeChart value={debtGdp.lastValue} min={0} max={200} greenMax={40} redMin={100}
+              format={(v) => `${v.toFixed(0)}%`} loading={debtGdp.loading}
+              greenLabel="Healthy" yellowLabel="Elevated" redLabel="Crisis" />
+            <p className="text-[9.5px] text-text-muted">Federal debt as % of GDP</p>
+          </div>
+
+          {/* Interest / Tax Receipts */}
+          <div className="bg-bg-card border border-bg-border rounded-xl p-3 flex flex-col gap-1">
+            <div className="flex items-start justify-between gap-1 min-h-[2.2rem]">
+              <p className="text-[11px] font-semibold text-text-primary leading-tight">Interest / Tax Receipts</p>
+              {intExpRatioV !== null && intExpRatioP !== null && (
+                <span className="text-[11px] font-mono whitespace-nowrap shrink-0 leading-tight"
+                  style={{ color: getDeltaColor(intExpRatioV - intExpRatioP, true) }}>
+                  ({(intExpRatioV - intExpRatioP) >= 0 ? '+' : ''}{Math.abs(intExpRatioV - intExpRatioP).toFixed(1)}%)
+                </span>
+              )}
+            </div>
+            <GaugeChart value={intExpRatioV} min={0} max={60} greenMax={15} redMin={25}
+              format={(v) => `${v.toFixed(1)}%`}
+              loading={interestRatio.loading || taxRec.loading}
+              greenLabel="Healthy" yellowLabel="Elevated" redLabel="Unsustainable" />
+            <p className="text-[9.5px] text-text-muted">Interest payments as % of federal revenue (~33% now)</p>
+          </div>
+
+          {/* Deficit / GDP */}
+          <div className="bg-bg-card border border-bg-border rounded-xl p-3 flex flex-col gap-1">
+            <div className="flex items-start justify-between gap-1 min-h-[2.2rem]">
+              <p className="text-[11px] font-semibold text-text-primary leading-tight">Deficit / GDP</p>
+              {deficitV !== null && deficitP !== null && (
+                <span className="text-[11px] font-mono whitespace-nowrap shrink-0 leading-tight"
+                  style={{ color: getDeltaColor(deficitV - deficitP, true) }}>
+                  ({(deficitV - deficitP) >= 0 ? '+' : ''}{Math.abs(deficitV - deficitP).toFixed(1)}%)
+                </span>
+              )}
+            </div>
+            <GaugeChart value={deficitV} min={0} max={20} greenMax={3} redMin={5}
+              format={(v) => `${v.toFixed(1)}%`} loading={deficitPct.loading}
+              greenLabel="Contained" yellowLabel="Expansionary" redLabel="Dominance" />
+            <p className="text-[9.5px] text-text-muted">Annual federal deficit as % of GDP</p>
+          </div>
+
+          {/* TGA Balance */}
+          <div className="bg-bg-card border border-bg-border rounded-xl p-3 flex flex-col gap-1">
+            <div className="flex items-start justify-between gap-1 min-h-[2.2rem]">
+              <p className="text-[11px] font-semibold text-text-primary leading-tight">TGA Balance</p>
+            </div>
+            <GaugeChart value={tga.lastValue ? tga.lastValue / 1000 : null} min={0} max={1000} greenMax={500} redMin={100}
+              format={(v) => `$${v.toFixed(0)}B`} loading={tga.loading}
+              greenLabel="Ample" yellowLabel="Low" redLabel="Depleted" />
+            <p className="text-[9.5px] text-text-muted">Treasury General Account — fiscal buffer</p>
+          </div>
+        </div>
+      )}
+
       {/* Warning banner */}
       <div className="bg-accent-red/10 border border-accent-red/30 rounded-xl p-4 flex items-start gap-3">
         <AlertTriangle size={18} className="text-accent-red shrink-0 mt-0.5" />

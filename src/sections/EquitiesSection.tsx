@@ -1,8 +1,13 @@
+import { useMemo } from 'react'
 import { useApp } from '../context/AppContext'
 import { useFRED } from '../hooks/useFRED'
+import { useYahoo } from '../hooks/useYahoo'
+import { useYahooHistory } from '../hooks/useYahooHistory'
 import { TradingViewChart } from '../components/charts/TradingViewChart'
 import { ChartCard, NoApiKeyCard } from '../components/cards/MetricCard'
 import { MacroChart } from '../components/charts/MacroChart'
+import { GaugeChart, deltaColor as getDeltaColor } from '../components/charts/GaugeChart'
+import { GaugeCard } from '../components/charts/GaugeCard'
 
 // US index ETFs — always free in TradingView embeds (NYSE/NASDAQ/AMEX listed)
 // CME E-mini futures (ES1!, NQ1!, RTY1!, YM1!) and index feeds (SP:SPX) require
@@ -40,11 +45,109 @@ export function EquitiesSection() {
   const hySpread = useFRED('BAMLH0A0HYM2', fredApiKey, { frequency: 'd', observationStart: '2010-01-01' })
   // Commercial bank loans (billions)
   const bankLoans = useFRED('TOTLL',       fredApiKey, { frequency: 'w', observationStart: '2010-01-01' })
+  // Buffett Indicator (Gromen)
+  const mktcap  = useFRED('NCBCEL', fredApiKey, { frequency: 'q', observationStart: '2000-01-01' })
+  const fedDebt = useFRED('GFDEBTN', fredApiKey, { frequency: 'q', observationStart: '2000-01-01' })
+  const gdp     = useFRED('GDP',    fredApiKey, { frequency: 'q', observationStart: '2000-01-01' })
+  // Yahoo indices for ATH gauges
+  const spx  = useYahoo('^GSPC')
+  const ndx  = useYahoo('^NDX')
+  const rut  = useYahoo('^RUT')
+  const spxH = useYahooHistory('^GSPC', '5y')
+  const ndxH = useYahooHistory('^NDX',  '5y')
+  const rutH = useYahooHistory('^RUT',  '5y')
 
   const lastVix = vix.lastValue
 
+  // Gromen Buffett: (mktcap $M − fedDebt $M) / 1000 / gdp $B × 100
+  const { gromenV, gromenP } = useMemo(() => ({
+    gromenV: mktcap.lastValue !== null && fedDebt.lastValue !== null && gdp.lastValue !== null
+      ? ((mktcap.lastValue - fedDebt.lastValue) / 1000 / gdp.lastValue) * 100 : null,
+    gromenP: mktcap.prevValue !== null && fedDebt.prevValue !== null && gdp.prevValue !== null
+      ? ((mktcap.prevValue - fedDebt.prevValue) / 1000 / gdp.prevValue) * 100 : null,
+  }), [mktcap.lastValue, mktcap.prevValue, fedDebt.lastValue, fedDebt.prevValue, gdp.lastValue, gdp.prevValue])
+
+  // % from ATH
+  const spxPct     = spx.value !== null && spxH.ath !== null ? (spx.value / spxH.ath - 1) * 100 : null
+  const spxPrevPct = spx.prev  !== null && spxH.ath !== null ? (spx.prev  / spxH.ath - 1) * 100 : null
+  const ndxPct     = ndx.value !== null && ndxH.ath !== null ? (ndx.value / ndxH.ath - 1) * 100 : null
+  const rutPct     = rut.value !== null && rutH.ath !== null ? (rut.value / rutH.ath - 1) * 100 : null
+
   return (
     <div className="section-enter flex flex-col gap-6">
+
+      {/* ── Gauge summary ─────────────────────────────────────────────────── */}
+      <div>
+        <p className="text-[10.5px] text-text-muted leading-relaxed mb-3">
+          Equity gauges — green = favorable conditions, red = stress / overvaluation.
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+
+          {/* VIX */}
+          {(() => {
+            const delta = vix.lastValue !== null && vix.prevValue !== null ? vix.lastValue - vix.prevValue : null
+            return (
+              <GaugeCard
+                title="Equity Volatility — VIX"
+                subtitle="CBOE VIX. >14=caution; >28=fear; >40=panic"
+                source="FRED VIXCLS"
+                delta={delta} deltaColor={getDeltaColor(delta, true)}
+                formatDelta={(d) => `${Math.abs(d).toFixed(2)}`}
+              >
+                <GaugeChart value={vix.lastValue} min={0} max={80} greenMax={14} redMin={28}
+                  format={(v) => v.toFixed(1)} loading={vix.loading}
+                  greenLabel="Calm" yellowLabel="Caution" redLabel="Panic" />
+              </GaugeCard>
+            )
+          })()}
+
+          {/* Gromen Buffett */}
+          {(() => {
+            const delta = gromenV !== null && gromenP !== null ? gromenV - gromenP : null
+            return (
+              <GaugeCard
+                title="Buffett Indicator (Gromen)"
+                subtitle="(US mktcap − federal debt) ÷ GDP. >100%=overvalued"
+                source="FRED NCBCEL, GFDEBTN, GDP"
+                delta={delta} deltaColor={getDeltaColor(delta, true)}
+                formatDelta={(d) => `${Math.abs(d).toFixed(1)}%`}
+              >
+                <GaugeChart value={gromenV} min={-50} max={200} greenMax={50} redMin={100}
+                  format={(v) => `${v.toFixed(0)}%`}
+                  loading={mktcap.loading || fedDebt.loading || gdp.loading}
+                  greenLabel="Fair Value" yellowLabel="Elevated" redLabel="Overvalued" />
+              </GaugeCard>
+            )
+          })()}
+
+          {/* Equity % from ATH */}
+          {(() => {
+            const delta = spxPct !== null && spxPrevPct !== null ? spxPct - spxPrevPct : null
+            return (
+              <GaugeCard
+                title="US Equity — % from ATH"
+                subtitle="S&P 500 / Nasdaq 100 / Russell 2000 vs 5-year ATH."
+                source="Yahoo ^GSPC ^NDX ^RUT"
+                delta={delta} deltaColor={getDeltaColor(delta, false)}
+                formatDelta={(d) => `SPX ${Math.abs(d).toFixed(2)}%`}
+              >
+                <GaugeChart
+                  needles={[
+                    { value: spxPct, color: '#3b82f6', label: 'SPX' },
+                    { value: ndxPct, color: '#8b5cf6', label: 'NDX' },
+                    { value: rutPct, color: '#f59e0b', label: 'RUT' },
+                  ]}
+                  min={-60} max={0} greenMax={-5} redMin={-15} inverted
+                  format={(v) => `${v.toFixed(1)}%`}
+                  loading={spx.loading || spxH.loading}
+                  greenLabel="Near ATH" yellowLabel="Recovery" redLabel="Bear Zone" />
+              </GaugeCard>
+            )
+          })()}
+
+        </div>
+      </div>
+
       {/* VIX (FRED) + MOVE context */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {fredApiKey ? (
