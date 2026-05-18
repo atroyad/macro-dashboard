@@ -42,7 +42,7 @@ export function OverviewSection() {
   // ── FRED — monthly ────────────────────────────────────────────────────────
   const cpi     = useFRED('CPIAUCSL',         fredApiKey, { units: 'pc1', observationStart: '2024-01-01' })
   const coreCpi = useFRED('CPILFESL',         fredApiKey, { units: 'pc1', observationStart: '2024-01-01' })
-  const ppi     = useFRED('PPIACO',           fredApiKey, { units: 'pc1', observationStart: '2024-01-01' })
+  const ppi     = useFRED('PPIFID',           fredApiKey, { units: 'pc1', observationStart: '2024-01-01' })
   const unrate  = useFRED('UNRATE',           fredApiKey, { frequency: 'm', observationStart: '2024-01-01' })
   const cfnai   = useFRED('CFNAI',            fredApiKey, { frequency: 'm', observationStart: '2024-01-01' })
   const loans   = useFRED('LOANS',            fredApiKey, { units: 'pc1', observationStart: '2024-01-01' })
@@ -236,7 +236,7 @@ export function OverviewSection() {
           return (
             <GaugeCard title="Inflation — CPI / Core / PPI YoY"
               subtitle="Headline CPI, Core CPI, & PPI YoY %. PPI leads CPI by 3–6 months."
-              source="FRED CPIAUCSL, CPILFESL, PPIACO"
+              source="FRED CPIAUCSL, CPILFESL, PPIFID"
               delta={delta} deltaColor={getDeltaColor(delta, true)}
               formatDelta={(d) => `CPI ${Math.abs(d).toFixed(2)}%`}>
               <GaugeChart
