@@ -230,7 +230,7 @@ export function LeadingIndicatorsSection() {
             <li>→ Both elevated simultaneously = "double whammy" — fiscal + energy stress at once</li>
             <li>→ Historical crisis zones: 1979–80 (~1000+), 2022 (~473), 2023 (~400)</li>
             <li>→ Post-GFC "easy era": 2011–2021 average ~90–130</li>
-            <li>→ Gromen: once product sustains >300, monetization becomes likely Fed response</li>
+            <li>→ Gromen: once product sustains &gt;300, monetization becomes likely Fed response</li>
           </ul>
         </div>
         <div className="bg-bg-card border border-bg-border rounded-xl p-4">
