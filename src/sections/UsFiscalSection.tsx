@@ -7,6 +7,7 @@ import { GaugeChart, deltaColor as getDeltaColor } from '../components/charts/Ga
 import { AlertTriangle } from 'lucide-react'
 
 const START = '2000-01-01'
+const TRADE_START = '1992-01-01'
 
 export function UsFiscalSection() {
   const { fredApiKey } = useApp()
@@ -21,6 +22,9 @@ export function UsFiscalSection() {
   const deficitGdp = useFRED('FYFSGDA188S', fredApiKey, { frequency: 'a', observationStart: '1970-01-01' })
   const tga = useFRED('WTREGEN', fredApiKey, { frequency: 'w', observationStart: '2015-01-01' })
   const fedBs = useFRED('WALCL', fredApiKey, { frequency: 'w', observationStart: '2015-01-01' })
+  // Trade balance & foreign holdings
+  const tradeBal   = useFRED('BOPGSTB',  fredApiKey, { frequency: 'm', observationStart: TRADE_START })
+  const foreignUST = useFRED('FDHBPIN',  fredApiKey, { frequency: 'm', observationStart: TRADE_START })
 
   // A091RC1Q027SBEA: Government interest payments, Billions USD, SAAR (annual rate)
   // Divide by 1000 to convert $B → $T
@@ -333,6 +337,114 @@ export function UsFiscalSection() {
           </div>
         </div>
       </div>
+
+      {/* ── Trade Balance & Foreign Holdings ────────────────────────────────── */}
+      {fredApiKey && (
+        <>
+          <div className="flex items-center gap-3 mt-2">
+            <div className="h-px flex-1 bg-bg-border" />
+            <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-text-muted">
+              Trade Balance &amp; External Demand for Treasuries
+            </span>
+            <div className="h-px flex-1 bg-bg-border" />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <ChartCard
+              title="US Goods Trade Balance (BOPGSTB)"
+              subtitle="Monthly goods imports minus exports, $M. Negative = deficit. Services not included."
+              height={320}
+              badge="FRED"
+              note="US runs ~$90B/month goods deficit. Services surplus ~$22B/month partially offsets. Net current account ~-3.5% GDP."
+            >
+              {tradeBal.data.length > 0 ? (
+                <MacroChart
+                  data={tradeBal.data.map(d => ({ date: d.date, value: d.value / 1000 }))}
+                  label="Trade Balance ($B)"
+                  color="#ef4444"
+                  unit="B"
+                  type="area"
+                  refLine={0}
+                />
+              ) : (
+                <div className="h-full flex items-center justify-center text-text-muted text-sm">
+                  {tradeBal.loading ? 'Loading…' : 'No data'}
+                </div>
+              )}
+            </ChartCard>
+
+            <ChartCard
+              title="Foreign Holdings of US Treasuries (FDHBPIN)"
+              subtitle="Total foreign-held USTs, $B. Declining share = rising domestic/Fed absorption required."
+              height={320}
+              badge="FRED"
+              note="Peak ~$8.5T. Japan ~$1.1T, China ~$760B (down from $1.3T peak in 2013). Decline = structural fragility."
+            >
+              {foreignUST.data.length > 0 ? (
+                <MacroChart
+                  data={foreignUST.data.map(d => ({ date: d.date, value: d.value / 1000 }))}
+                  label="Foreign UST Holdings ($T)"
+                  color="#3b82f6"
+                  unit="T"
+                  type="area"
+                />
+              ) : (
+                <div className="h-full flex items-center justify-center text-text-muted text-sm">
+                  {foreignUST.loading ? 'Loading…' : 'No data'}
+                </div>
+              )}
+            </ChartCard>
+          </div>
+
+          {/* Export/Import composition (static reference) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-bg-card border border-bg-border rounded-xl p-4">
+              <h4 className="text-sm font-medium text-text-secondary mb-3">
+                Top US Exports (~$3.0T/year)
+              </h4>
+              <div className="space-y-2">
+                {[
+                  { item: 'Petroleum Products & LNG', pct: '~12%', color: '#f97316' },
+                  { item: 'Semiconductors & Electronics', pct: '~9%',  color: '#3b82f6' },
+                  { item: 'Civilian Aircraft (Boeing)', pct: '~5%',  color: '#8b5cf6' },
+                  { item: 'Pharmaceuticals',           pct: '~5%',  color: '#22c55e' },
+                  { item: 'Agricultural (Soy/Corn)',   pct: '~5%',  color: '#f59e0b' },
+                  { item: 'Capital Equipment',         pct: '~8%',  color: '#00d4aa' },
+                  { item: 'Financial Services (surplus)', pct: '~9%', color: '#a3e635' },
+                ].map(r => (
+                  <div key={r.item} className="flex items-center gap-2">
+                    <div className="w-1 h-3.5 rounded shrink-0" style={{ background: r.color }} />
+                    <span className="text-xs text-text-secondary flex-1">{r.item}</span>
+                    <span className="text-xs font-mono text-text-muted">{r.pct}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="bg-bg-card border border-bg-border rounded-xl p-4">
+              <h4 className="text-sm font-medium text-text-secondary mb-3">
+                Top US Imports (~$3.2T goods/year)
+              </h4>
+              <div className="space-y-2">
+                {[
+                  { item: 'Consumer Electronics & Phones', pct: '~11%', color: '#ef4444' },
+                  { item: 'Vehicles & Parts',              pct: '~10%', color: '#f97316' },
+                  { item: 'Pharmaceuticals',               pct: '~8%',  color: '#22c55e' },
+                  { item: 'Capital Equipment & Machinery', pct: '~8%',  color: '#3b82f6' },
+                  { item: 'Crude Oil (heavy/sour)',         pct: '~6%',  color: '#f59e0b' },
+                  { item: 'Apparel & Textiles',             pct: '~5%',  color: '#8b5cf6' },
+                  { item: 'Steel, Aluminum, Metals',        pct: '~4%',  color: '#94a3b8' },
+                ].map(r => (
+                  <div key={r.item} className="flex items-center gap-2">
+                    <div className="w-1 h-3.5 rounded shrink-0" style={{ background: r.color }} />
+                    <span className="text-xs text-text-secondary flex-1">{r.item}</span>
+                    <span className="text-xs font-mono text-text-muted">{r.pct}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Stablecoins demand for T-bills */}
       <div className="bg-bg-card border border-accent-teal/20 rounded-xl p-4">

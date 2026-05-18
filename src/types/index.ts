@@ -11,6 +11,7 @@ export type Section =
   | 'currencies'
   | 'crypto'
   | 'equities'
+  | 'leading-indicators'
 
 export interface FREDObservation {
   date: string

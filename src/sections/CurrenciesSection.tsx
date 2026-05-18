@@ -27,6 +27,7 @@ export function CurrenciesSection() {
   const { fredApiKey } = useApp()
   const usdjpy = useFRED('DEXJPUS', fredApiKey, { frequency: 'd', observationStart: '2025-01-01' })
   const dxy    = useYahoo('DX-Y.NYB')
+  const cnh    = useYahoo('CNH=X')   // USD/CNH offshore yuan
 
   return (
     <div className="section-enter flex flex-col gap-6">
@@ -71,6 +72,24 @@ export function CurrenciesSection() {
                 <GaugeChart value={usdjpy.lastValue} min={80} max={200} greenMax={100} redMin={160}
                   format={(v) => v.toFixed(1)} loading={usdjpy.loading}
                   greenLabel="Strong ¥" yellowLabel="Weak" redLabel="Crisis" />
+              </GaugeCard>
+            )
+          })()}
+
+          {/* USD/CNH — offshore yuan */}
+          {(() => {
+            const delta = cnh.value !== null && cnh.prev !== null ? cnh.value - cnh.prev : null
+            return (
+              <GaugeCard
+                title="De-dollarization — USD/CNH (Offshore)"
+                subtitle="Offshore yuan per USD. >7.5=devaluation pressure / PBoC weakening; <7=yuan strengthening."
+                source="Yahoo CNH=X"
+                delta={delta} deltaColor={getDeltaColor(delta, true)}
+                formatDelta={(d) => `${Math.abs(d).toFixed(4)}`}
+              >
+                <GaugeChart value={cnh.value} min={6} max={9} greenMax={6.8} redMin={7.5}
+                  format={(v) => v.toFixed(4)} loading={cnh.loading}
+                  greenLabel="Yuan Strong" yellowLabel="Normal" redLabel="Devaluation" />
               </GaugeCard>
             )
           })()}

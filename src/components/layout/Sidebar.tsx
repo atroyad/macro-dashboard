@@ -12,6 +12,7 @@ import {
   LineChart,
   Activity,
   Flame,
+  AlertTriangle,
 } from 'lucide-react'
 
 interface NavItem {
@@ -32,6 +33,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'currencies', label: 'Currencies', icon: <Globe size={18} />, color: '#22c55e' },
   { id: 'crypto', label: 'Crypto', icon: <Bitcoin size={18} />, color: '#f59e0b' },
   { id: 'equities', label: 'Equities', icon: <LineChart size={18} />, color: '#3b82f6' },
+  { id: 'leading-indicators', label: 'Recession Watch', icon: <AlertTriangle size={18} />, color: '#ef4444' },
 ]
 
 export function Sidebar({ expanded }: { expanded: boolean }) {

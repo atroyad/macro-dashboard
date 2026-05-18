@@ -29,6 +29,9 @@ export function LiquiditySection() {
   const sofr     = useFRED('SOFR',     fredApiKey, { frequency: 'd', observationStart: '2018-01-01' })
   const iorb     = useFRED('IORB',     fredApiKey, { frequency: 'd', observationStart: '2021-07-01' })
   const gdp      = useFRED('GDP',      fredApiKey, { frequency: 'q', observationStart: '2000-01-01' })
+  // Financial conditions indices
+  const nfci     = useFRED('NFCI',     fredApiKey, { frequency: 'w', observationStart: '2025-01-01' })
+  const stlfsi   = useFRED('STLFSI',   fredApiKey, { frequency: 'w', observationStart: '2025-01-01' })
 
   // Normalise WALCL (millions) → billions
   const fedBsB = useMemo(() => fedBs.data.map(d => ({ date: d.date, value: d.value / 1000 })), [fedBs.data])
@@ -123,6 +126,45 @@ export function LiquiditySection() {
                   format={(v) => `${v.toFixed(1)}%`}
                   loading={reserves.loading || gdp.loading}
                   greenLabel="Ample" yellowLabel="Adequate" redLabel="Stress" />
+              </GaugeCard>
+            )
+          })()}
+
+          {/* NFCI — Chicago Fed National Financial Conditions */}
+          {(() => {
+            const delta = nfci.lastValue !== null && nfci.prevValue !== null ? nfci.lastValue - nfci.prevValue : null
+            return (
+              <GaugeCard
+                title="Financial Conditions — NFCI"
+                subtitle="Chicago Fed: <0=loose/accommodative; >0=tight; >1=significantly tight"
+                source="FRED NFCI"
+                delta={delta} deltaColor={getDeltaColor(delta, true)}
+                formatDelta={(d) => `${Math.abs(d).toFixed(3)}`}
+              >
+                {/* inverted: left=red (tight/high), right=green (loose/low) */}
+                <GaugeChart value={nfci.lastValue} min={-1} max={3}
+                  greenMax={-0.5} redMin={0.5} inverted
+                  format={(v) => v.toFixed(3)} loading={nfci.loading}
+                  greenLabel="Loose" yellowLabel="Neutral" redLabel="Tight" />
+              </GaugeCard>
+            )
+          })()}
+
+          {/* STLFSI — St. Louis Financial Stress */}
+          {(() => {
+            const delta = stlfsi.lastValue !== null && stlfsi.prevValue !== null ? stlfsi.lastValue - stlfsi.prevValue : null
+            return (
+              <GaugeCard
+                title="Financial Conditions — STLFSI"
+                subtitle="St. Louis Fed: <0=below-average stress; >1=elevated; >2=extreme stress"
+                source="FRED STLFSI"
+                delta={delta} deltaColor={getDeltaColor(delta, true)}
+                formatDelta={(d) => `${Math.abs(d).toFixed(3)}`}
+              >
+                <GaugeChart value={stlfsi.lastValue} min={-2} max={5}
+                  greenMax={-0.5} redMin={1} inverted
+                  format={(v) => v.toFixed(3)} loading={stlfsi.loading}
+                  greenLabel="Low Stress" yellowLabel="Normal" redLabel="High Stress" />
               </GaugeCard>
             )
           })()}

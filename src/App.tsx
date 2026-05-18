@@ -13,6 +13,7 @@ import { CurrenciesSection } from './sections/CurrenciesSection'
 import { CryptoSection } from './sections/CryptoSection'
 import { EquitiesSection } from './sections/EquitiesSection'
 import { OilSection } from './sections/OilSection'
+import { LeadingIndicatorsSection } from './sections/LeadingIndicatorsSection'
 
 function Dashboard() {
   const [sidebarExpanded, setSidebarExpanded] = useState(true)
@@ -29,6 +30,7 @@ function Dashboard() {
     currencies: <CurrenciesSection />,
     crypto: <CryptoSection />,
     equities: <EquitiesSection />,
+    'leading-indicators': <LeadingIndicatorsSection />,
   }
 
   return (

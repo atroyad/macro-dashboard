@@ -42,16 +42,26 @@ export function OverviewSection() {
   // ── FRED — monthly ────────────────────────────────────────────────────────
   const cpi     = useFRED('CPIAUCSL',         fredApiKey, { units: 'pc1', observationStart: '2024-01-01' })
   const coreCpi = useFRED('CPILFESL',         fredApiKey, { units: 'pc1', observationStart: '2024-01-01' })
+  const ppi     = useFRED('PPIACO',           fredApiKey, { units: 'pc1', observationStart: '2024-01-01' })
   const unrate  = useFRED('UNRATE',           fredApiKey, { frequency: 'm', observationStart: '2024-01-01' })
   const cfnai   = useFRED('CFNAI',            fredApiKey, { frequency: 'm', observationStart: '2024-01-01' })
   const loans   = useFRED('LOANS',            fredApiKey, { units: 'pc1', observationStart: '2024-01-01' })
   const m2      = useFRED('M2SL',             fredApiKey, { units: 'pc1', observationStart: '2024-01-01' })
+  // ── FRED — economy behind the headlines ───────────────────────────────────
+  const mortgage= useFRED('MORTGAGE30US',     fredApiKey, { frequency: 'm', observationStart: '2024-01-01' })
+  const mspus   = useFRED('MSPUS',            fredApiKey, { frequency: 'q', observationStart: '2020-01-01' })
+  const emSpread= useFRED('BAMLEMCBPIOAS',    fredApiKey, { frequency: 'd', observationStart: '2024-01-01' })
+  const jolts   = useFRED('JTSJOL',           fredApiKey, { frequency: 'm', observationStart: '2024-01-01' })
+  const unemploy= useFRED('UNEMPLOY',         fredApiKey, { frequency: 'm', observationStart: '2024-01-01' })
+  const ahetpi  = useFRED('AHETPI',           fredApiKey, { units: 'pc1', observationStart: '2024-01-01' })
 
   // ── FRED — quarterly ──────────────────────────────────────────────────────
   const mktcap  = useFRED('NCBCEL',           fredApiKey, { frequency: 'q', observationStart: '2000-01-01' })
   const fedDebt = useFRED('GFDEBTN',          fredApiKey, { frequency: 'q', observationStart: '2000-01-01' })
   const gdp     = useFRED('GDP',              fredApiKey, { frequency: 'q', observationStart: '2000-01-01' })
   const debtGdp = useFRED('GFDEGDQ188S',      fredApiKey, { frequency: 'q', observationStart: '2000-01-01' })
+  // ── FRED — bond market 2Y-10Y ─────────────────────────────────────────────
+  const t10y2y  = useFRED('T10Y2Y',           fredApiKey, { frequency: 'd', observationStart: S })
   // ── FRED — fiscal (for US Fiscal gauge row) ───────────────────────────────
   const taxRec       = useFRED('W006RC1Q027SBEA', fredApiKey, { frequency: 'q', observationStart: '2020-01-01' })
   const interestRatio= useFRED('A091RC1Q027SBEA', fredApiKey, { frequency: 'q', observationStart: '2020-01-01' })
@@ -115,6 +125,30 @@ export function OverviewSection() {
     ? (interestRatio.prevValue / taxRec.prevValue) * 100 : null
   const deficitV = deficitPct.lastValue !== null ? -deficitPct.lastValue : null
   const deficitP = deficitPct.prevValue !== null ? -deficitPct.prevValue : null
+
+  // Housing affordability: monthly payment (80% LTV, 30Y fixed) as % of $7k/month median income
+  const affordV = useMemo(() => {
+    if (!mortgage.lastValue || !mspus.lastValue) return null
+    const r = mortgage.lastValue / 1200
+    const payment = mspus.lastValue * 0.8 * r / (1 - Math.pow(1 + r, -360))
+    return (payment / 7000) * 100  // % of $7k/month ≈ current US median
+  }, [mortgage.lastValue, mspus.lastValue])
+  const affordP = useMemo(() => {
+    if (!mortgage.prevValue || !mspus.prevValue) return null
+    const r = mortgage.prevValue / 1200
+    const payment = mspus.prevValue * 0.8 * r / (1 - Math.pow(1 + r, -360))
+    return (payment / 7000) * 100
+  }, [mortgage.prevValue, mspus.prevValue])
+
+  // Labor market ratio: JOLTS openings / unemployed persons (both in thousands)
+  const laborRatioV = jolts.lastValue !== null && unemploy.lastValue !== null && unemploy.lastValue > 0
+    ? jolts.lastValue / unemploy.lastValue : null
+  const laborRatioP = jolts.prevValue !== null && unemploy.prevValue !== null && unemploy.prevValue > 0
+    ? jolts.prevValue / unemploy.prevValue : null
+
+  // Real wage growth: nominal wage YoY − CPI YoY
+  const realWageV = ahetpi.lastValue !== null && cpi.lastValue !== null ? ahetpi.lastValue - cpi.lastValue : null
+  const realWageP = ahetpi.prevValue !== null && cpi.prevValue !== null ? ahetpi.prevValue - cpi.prevValue : null
 
   // Gold in CNY
   const goldCnyV = gcf.value !== null && cnyx.value !== null ? gcf.value * cnyx.value : null
@@ -196,23 +230,24 @@ export function OverviewSection() {
           )
         })()}
 
-        {/* Inflation — CPI + Core CPI multi-needle */}
+        {/* Inflation — CPI + Core CPI + PPI multi-needle */}
         {(() => {
           const delta = cpi.lastValue !== null && cpi.prevValue !== null ? cpi.lastValue - cpi.prevValue : null
           return (
-            <GaugeCard title="Inflation — CPI YoY"
-              subtitle="Headline & core CPI YoY %. Fed target=2%. >3%=hot; <1%=deflation risk"
-              source="FRED CPIAUCSL, CPILFESL"
+            <GaugeCard title="Inflation — CPI / Core / PPI YoY"
+              subtitle="Headline CPI, Core CPI, & PPI YoY %. PPI leads CPI by 3–6 months."
+              source="FRED CPIAUCSL, CPILFESL, PPIACO"
               delta={delta} deltaColor={getDeltaColor(delta, true)}
-              formatDelta={(d) => `${Math.abs(d).toFixed(2)}%`}>
+              formatDelta={(d) => `CPI ${Math.abs(d).toFixed(2)}%`}>
               <GaugeChart
                 needles={[
                   { value: cpi.lastValue,     color: '#f87171', label: 'CPI'  },
                   { value: coreCpi.lastValue, color: '#fb923c', label: 'Core' },
+                  { value: ppi.lastValue,     color: '#a78bfa', label: 'PPI'  },
                 ]}
-                min={-1} max={10} greenMax={2} redMin={3}
+                min={-1} max={12} greenMax={2} redMin={3}
                 format={(v) => `${v.toFixed(2)}%`}
-                loading={cpi.loading || coreCpi.loading}
+                loading={cpi.loading || coreCpi.loading || ppi.loading}
                 greenLabel="Target" yellowLabel="Above Target" redLabel="Hot" />
             </GaugeCard>
           )
@@ -365,6 +400,77 @@ export function OverviewSection() {
           )
         })()}
 
+        {/* Housing Affordability — derived monthly payment as % of median income */}
+        {(() => {
+          const delta = affordV !== null && affordP !== null ? affordV - affordP : null
+          return (
+            <GaugeCard title="Housing Affordability"
+              subtitle="Monthly mortgage (80% LTV, 30Y) as % of $7k/month median income. >35%=unaffordable."
+              source="FRED MORTGAGE30US, MSPUS"
+              delta={delta} deltaColor={getDeltaColor(delta, true)}
+              formatDelta={(d) => `${Math.abs(d).toFixed(1)}%`}>
+              <GaugeChart value={affordV} min={0} max={60} greenMax={25} redMin={38}
+                format={(v) => `${v.toFixed(1)}%`}
+                loading={mortgage.loading || mspus.loading}
+                greenLabel="Affordable" yellowLabel="Stretched" redLabel="Unaffordable" />
+            </GaugeCard>
+          )
+        })()}
+
+        {/* EM Credit Spreads */}
+        {(() => {
+          const delta = emSpread.lastValue !== null && emSpread.prevValue !== null ? emSpread.lastValue - emSpread.prevValue : null
+          return (
+            <GaugeCard title="EM Credit Spreads (OAS)"
+              subtitle="Emerging market corporate bond option-adjusted spread. Wide=dollar squeeze/stress."
+              source="FRED BAMLEMCBPIOAS"
+              delta={delta} deltaColor={getDeltaColor(delta, true)}
+              formatDelta={(d) => `${Math.abs(d).toFixed(0)} bps`}>
+              <GaugeChart value={emSpread.lastValue} min={0} max={10} greenMax={3} redMin={6}
+                format={(v) => `${v.toFixed(2)}%`} loading={emSpread.loading}
+                greenLabel="Tight/Risk-On" yellowLabel="Normal" redLabel="Stress/Risk-Off" />
+            </GaugeCard>
+          )
+        })()}
+
+        {/* Labor Market Ratio — JOLTS openings / unemployed */}
+        {(() => {
+          const delta = laborRatioV !== null && laborRatioP !== null ? laborRatioV - laborRatioP : null
+          return (
+            <GaugeCard title="Labor Demand — Openings/Unemployed"
+              subtitle="JOLTS job openings ÷ unemployed persons. >1.5=very tight; <0.8=slack labor market."
+              source="FRED JTSJOL, UNEMPLOY"
+              delta={delta} deltaColor={getDeltaColor(delta, false)}
+              formatDelta={(d) => `${Math.abs(d).toFixed(2)}×`}>
+              {/* inverted: high ratio (right) = good (green); low ratio = slack (red) */}
+              <GaugeChart value={laborRatioV} min={0} max={3}
+                greenMax={1.5} redMin={0.8} inverted
+                format={(v) => `${v.toFixed(2)}×`}
+                loading={jolts.loading || unemploy.loading}
+                greenLabel="Tight" yellowLabel="Balanced" redLabel="Slack" />
+            </GaugeCard>
+          )
+        })()}
+
+        {/* Real Wages — nominal wage growth minus CPI */}
+        {(() => {
+          const delta = realWageV !== null && realWageP !== null ? realWageV - realWageP : null
+          return (
+            <GaugeCard title="Real Wage Growth"
+              subtitle="Nominal avg hourly earnings YoY minus CPI YoY. Positive=real purchasing power growing."
+              source="FRED AHETPI, CPIAUCSL (pc1)"
+              delta={delta} deltaColor={getDeltaColor(delta, false)}
+              formatDelta={(d) => `${Math.abs(d).toFixed(2)}%`}>
+              {/* inverted: right side = positive real wages = green */}
+              <GaugeChart value={realWageV} min={-5} max={5}
+                greenMax={1} redMin={0} inverted
+                format={(v) => `${v.toFixed(2)}%`}
+                loading={ahetpi.loading || cpi.loading}
+                greenLabel="Real Growth" yellowLabel="Flat" redLabel="Real Decline" />
+            </GaugeCard>
+          )
+        })()}
+
         {/* ═══════════════════════════════════════════════════════════════════
             BOND MARKET
         ═══════════════════════════════════════════════════════════════════ */}
@@ -432,6 +538,25 @@ export function OverviewSection() {
                 format={(v) => `${(v * 100).toFixed(0)} bps`}
                 loading={us10y.loading || effr.loading}
                 greenLabel="Risk On" yellowLabel="Flat" redLabel="Risk Off" />
+            </GaugeCard>
+          )
+        })()}
+
+        {/* Yield Curve — 10Y minus 2Y */}
+        {(() => {
+          const delta = t10y2y.lastValue !== null && t10y2y.prevValue !== null ? t10y2y.lastValue - t10y2y.prevValue : null
+          return (
+            <GaugeCard title="Yield Curve — 10Y minus 2Y"
+              subtitle="Classic recession predictor. Inversion (<0) precedes recessions by 6–18 months; watch the re-steepening."
+              source="FRED T10Y2Y"
+              delta={delta} deltaColor={getDeltaColor(delta, false)}
+              formatDelta={(d) => `${Math.abs(d * 100).toFixed(0)} bps`}>
+              {/* inverted arc: right=green (positive spread=normal), left=red (negative=inverted curve) */}
+              <GaugeChart value={t10y2y.lastValue} min={-3} max={3}
+                greenMax={0.5} redMin={0} inverted
+                format={(v) => `${(v * 100).toFixed(0)} bps`}
+                loading={t10y2y.loading}
+                greenLabel="Normal" yellowLabel="Flat" redLabel="Inverted" />
             </GaugeCard>
           )
         })()}
