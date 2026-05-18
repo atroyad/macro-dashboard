@@ -54,6 +54,8 @@ export function OverviewSection() {
   const jolts   = useFRED('JTSJOL',           fredApiKey, { frequency: 'm', observationStart: '2024-01-01' })
   const unemploy= useFRED('UNEMPLOY',         fredApiKey, { frequency: 'm', observationStart: '2024-01-01' })
   const ahetpi  = useFRED('AHETPI',           fredApiKey, { units: 'pc1', observationStart: '2024-01-01' })
+  const sahm    = useFRED('SAHMREALTIME',     fredApiKey, { frequency: 'm', observationStart: '2024-01-01' })
+  const recProb = useFRED('RECPROUSM156N',    fredApiKey, { frequency: 'm', observationStart: '2024-01-01' })
 
   // ── FRED — quarterly ──────────────────────────────────────────────────────
   const mktcap  = useFRED('NCBCEL',           fredApiKey, { frequency: 'q', observationStart: '2000-01-01' })
@@ -76,6 +78,7 @@ export function OverviewSection() {
   const sif     = useYahoo('SI=F')
   const hgf     = useYahoo('HG=F')
   const cnyx    = useYahoo('CNY=X')
+  const cnh     = useYahoo('CNH=X')
   const clf     = useYahoo('CL=F')
   const bzf     = useYahoo('BZ=F')
   const spx     = useYahoo('^GSPC')
@@ -149,6 +152,10 @@ export function OverviewSection() {
   // Real wage growth: nominal wage YoY − CPI YoY
   const realWageV = ahetpi.lastValue !== null && cpi.lastValue !== null ? ahetpi.lastValue - cpi.lastValue : null
   const realWageP = ahetpi.prevValue !== null && cpi.prevValue !== null ? ahetpi.prevValue - cpi.prevValue : null
+
+  // Gromen 10Y × WTI stress
+  const gromenStressV = us10y.lastValue !== null && wtiS.lastValue !== null ? us10y.lastValue * wtiS.lastValue : null
+  const gromenStressP = us10y.prevValue !== null && wtiS.prevValue !== null ? us10y.prevValue * wtiS.prevValue : null
 
   // Gold in CNY
   const goldCnyV = gcf.value !== null && cnyx.value !== null ? gcf.value * cnyx.value : null
@@ -417,22 +424,6 @@ export function OverviewSection() {
           )
         })()}
 
-        {/* EM Credit Spreads */}
-        {(() => {
-          const delta = emSpread.lastValue !== null && emSpread.prevValue !== null ? emSpread.lastValue - emSpread.prevValue : null
-          return (
-            <GaugeCard title="EM Credit Spreads (OAS)"
-              subtitle="Emerging market corporate bond option-adjusted spread. Wide=dollar squeeze/stress."
-              source="FRED BAMLEMCBPIOAS"
-              delta={delta} deltaColor={getDeltaColor(delta, true)}
-              formatDelta={(d) => `${Math.abs(d).toFixed(0)} bps`}>
-              <GaugeChart value={emSpread.lastValue} min={0} max={10} greenMax={3} redMin={6}
-                format={(v) => `${v.toFixed(2)}%`} loading={emSpread.loading}
-                greenLabel="Tight/Risk-On" yellowLabel="Normal" redLabel="Stress/Risk-Off" />
-            </GaugeCard>
-          )
-        })()}
-
         {/* Labor Market Ratio — JOLTS openings / unemployed */}
         {(() => {
           const delta = laborRatioV !== null && laborRatioP !== null ? laborRatioV - laborRatioP : null
@@ -467,6 +458,54 @@ export function OverviewSection() {
                 format={(v) => `${v.toFixed(2)}%`}
                 loading={ahetpi.loading || cpi.loading}
                 greenLabel="Real Growth" yellowLabel="Flat" redLabel="Real Decline" />
+            </GaugeCard>
+          )
+        })()}
+
+        {/* Gromen 10Y × WTI stress */}
+        {(() => {
+          const delta = gromenStressV !== null && gromenStressP !== null ? gromenStressV - gromenStressP : null
+          return (
+            <GaugeCard title="Gromen Stress — 10Y × WTI"
+              subtitle="10Y yield × WTI spot. Both high simultaneously = energy + borrowing cost double whammy. >300=crisis zone."
+              source="FRED DGS10 × DCOILWTICO"
+              delta={delta} deltaColor={getDeltaColor(delta, true)}
+              formatDelta={(d) => `${Math.abs(d).toFixed(1)}`}>
+              <GaugeChart value={gromenStressV} min={0} max={600} greenMax={150} redMin={300}
+                format={(v) => v.toFixed(0)} loading={us10y.loading || wtiS.loading}
+                greenLabel="Easy" yellowLabel="Elevated" redLabel="Crisis" />
+            </GaugeCard>
+          )
+        })()}
+
+        {/* Sahm Rule */}
+        {(() => {
+          const delta = sahm.lastValue !== null && sahm.prevValue !== null ? sahm.lastValue - sahm.prevValue : null
+          return (
+            <GaugeCard title="Sahm Rule"
+              subtitle="Rise in 3M avg unemployment from 12M low. ≥0.50=recession triggered in every cycle since 1970."
+              source="FRED SAHMREALTIME"
+              delta={delta} deltaColor={getDeltaColor(delta, true)}
+              formatDelta={(d) => `${Math.abs(d).toFixed(2)}`}>
+              <GaugeChart value={sahm.lastValue} min={0} max={1.5} greenMax={0.25} redMin={0.50}
+                format={(v) => v.toFixed(2)} loading={sahm.loading}
+                greenLabel="No Signal" yellowLabel="Warning" redLabel="Triggered" />
+            </GaugeCard>
+          )
+        })()}
+
+        {/* US Recession Probability */}
+        {(() => {
+          const delta = recProb.lastValue !== null && recProb.prevValue !== null ? recProb.lastValue - recProb.prevValue : null
+          return (
+            <GaugeCard title="US Recession Probability"
+              subtitle="Chauvet-Piger model (yield curve + macro data). >40%=high risk; has called every recession since 1979."
+              source="FRED RECPROUSM156N"
+              delta={delta} deltaColor={getDeltaColor(delta, true)}
+              formatDelta={(d) => `${Math.abs(d).toFixed(1)}%`}>
+              <GaugeChart value={recProb.lastValue} min={0} max={100} greenMax={10} redMin={40}
+                format={(v) => `${v.toFixed(0)}%`} loading={recProb.loading}
+                greenLabel="Low Risk" yellowLabel="Elevated" redLabel="High Risk" />
             </GaugeCard>
           )
         })()}
@@ -641,6 +680,22 @@ export function OverviewSection() {
           )
         })()}
 
+        {/* EM Credit Spreads */}
+        {(() => {
+          const delta = emSpread.lastValue !== null && emSpread.prevValue !== null ? emSpread.lastValue - emSpread.prevValue : null
+          return (
+            <GaugeCard title="EM Credit Spreads (OAS)"
+              subtitle="Emerging market corporate bond OAS. Wide=dollar squeeze/EM stress."
+              source="FRED BAMLEMCBPIOAS"
+              delta={delta} deltaColor={getDeltaColor(delta, true)}
+              formatDelta={(d) => `${Math.abs(d).toFixed(2)}%`}>
+              <GaugeChart value={emSpread.lastValue} min={0} max={10} greenMax={3} redMin={6}
+                format={(v) => `${v.toFixed(2)}%`} loading={emSpread.loading}
+                greenLabel="Tight/Risk-On" yellowLabel="Normal" redLabel="Stress/Risk-Off" />
+            </GaugeCard>
+          )
+        })()}
+
         {/* ═══════════════════════════════════════════════════════════════════
             EQUITY MARKET
         ═══════════════════════════════════════════════════════════════════ */}
@@ -735,6 +790,22 @@ export function OverviewSection() {
               <GaugeChart value={usdjpy.lastValue} min={80} max={200} greenMax={100} redMin={160}
                 format={(v) => v.toFixed(1)} loading={usdjpy.loading}
                 greenLabel="Strong ¥" yellowLabel="Weak" redLabel="Crisis" />
+            </GaugeCard>
+          )
+        })()}
+
+        {/* USD/CNH — offshore yuan */}
+        {(() => {
+          const delta = cnh.value !== null && cnh.prev !== null ? cnh.value - cnh.prev : null
+          return (
+            <GaugeCard title="De-dollarization — USD/CNH"
+              subtitle="Offshore yuan per USD. >7.5=devaluation pressure; <7=yuan strengthening / de-dollarization."
+              source="Yahoo CNH=X"
+              delta={delta} deltaColor={getDeltaColor(delta, true)}
+              formatDelta={(d) => `${Math.abs(d).toFixed(4)}`}>
+              <GaugeChart value={cnh.value} min={6} max={9} greenMax={6.8} redMin={7.5}
+                format={(v) => v.toFixed(3)} loading={cnh.loading}
+                greenLabel="Yuan Strong" yellowLabel="Normal" redLabel="Devaluation" />
             </GaugeCard>
           )
         })()}
