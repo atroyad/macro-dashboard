@@ -108,7 +108,7 @@ export function UsFiscalSection() {
             <div className="flex items-start justify-between gap-1 min-h-[2.2rem]">
               <p className="text-[11px] font-semibold text-text-primary leading-tight">TGA Balance</p>
             </div>
-            <GaugeChart value={tga.lastValue ? tga.lastValue / 1000 : null} min={0} max={1000} greenMax={500} redMin={100}
+            <GaugeChart value={tga.lastValue ? tga.lastValue / 1000 : null} min={0} max={1500} greenMax={500} redMin={100} inverted
               format={(v) => `$${v.toFixed(0)}B`} loading={tga.loading}
               greenLabel="Ample" yellowLabel="Low" redLabel="Depleted" />
             <p className="text-[9.5px] text-text-muted">Treasury General Account — fiscal buffer</p>

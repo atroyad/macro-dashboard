@@ -341,7 +341,7 @@ export function OverviewSection() {
               source="FRED WTREGEN"
               delta={null} deltaColor="#64748b"
               formatDelta={() => ''}>
-              <GaugeChart value={tgaB} min={0} max={1000} greenMax={500} redMin={100}
+              <GaugeChart value={tgaB} min={0} max={1500} greenMax={500} redMin={100} inverted
                 format={(v) => `$${v.toFixed(0)}B`} loading={tga.loading}
                 greenLabel="Ample" yellowLabel="Low" redLabel="Depleted" />
             </GaugeCard>
